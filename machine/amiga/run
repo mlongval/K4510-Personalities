@@ -1,0 +1,17 @@
+#!/bin/sh
+# Start one Amiga personality: run/<name> is a link to this file.  The image
+# (mounted at /opt/personalities/amiga, a RAM copy) carries Amiberry and the
+# Kickstarts; everything else is the user's and lives on the disk (p4), in
+# ~/personalities/<name>:
+#   <name>.uae  the configuration (written on the first start; F12 -> Save
+#               config, or edit it)
+#   floppies/   ADFs: the Workbench disks, games -- F12 -> Floppy drives
+#   DH0/        the A1200's hard drive, a directory with Workbench 3.1 on it
+A=/opt/personalities/amiga
+name=$(basename "$0")
+export LD_LIBRARY_PATH=$A/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
+D=$HOME/personalities/$name; mkdir -p "$D/floppies"; cd "$D" || exit 1
+[ -f "$D/$name.uae" ] || sed "s|@HOME@|$D|g; s|@IMG@|$A|g" "$A/conf/$name.uae" > "$D/$name.uae"
+# Amiberry's own files (amiberry.conf, logs, savestates) beside the rest
+export XDG_CONFIG_HOME=$D/.config XDG_DATA_HOME=$D/.local
+exec $A/bin/amiberry --config "$D/$name.uae" -G "$@"

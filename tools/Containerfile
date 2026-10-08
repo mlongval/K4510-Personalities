@@ -1,0 +1,13 @@
+# The builder: the K4510x's own Debian (trixie, amd64), so every library the
+# personalities link against is the version the machine's base already has
+# or one we bundle beside them.
+FROM docker.io/library/debian:trixie
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      build-essential pkg-config autoconf automake libtool flex bison dos2unix \
+      xa65 texinfo cmake ninja-build git ca-certificates curl xz-utils file patchelf \
+      libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev libpng-dev zlib1g-dev \
+      libasound2-dev libmpg123-dev libflac-dev libcurl4-openssl-dev \
+      libserialport-dev libportmidi-dev libenet-dev libzstd-dev libmpeg2-4-dev \
+      libsdl3-dev libsdl3-image-dev libsdl3-ttf-dev nlohmann-json3-dev libglew-dev libgl-dev libegl-dev libdrm-dev libgbm-dev \
+      squashfs-tools unadf xvfb xauth imagemagick \
+ && rm -rf /var/lib/apt/lists/*

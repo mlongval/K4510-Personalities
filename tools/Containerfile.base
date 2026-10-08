@@ -1,0 +1,10 @@
+# A stand-in for the K4510x BASE squashfs: trixie plus linux/packages.list
+# (copied from the K4510 repo as k4510-base.packages).  Only used to answer
+# "which libraries does the machine already have?" -- what it lacks is
+# bundled into each personality.
+FROM docker.io/library/debian:trixie
+COPY k4510-base.packages /tmp/p
+RUN sed -i 's/^Components: main$/Components: main contrib non-free non-free-firmware/' /etc/apt/sources.list.d/debian.sources \
+ && apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+      $(sed 's/#.*//' /tmp/p | awk 'NF{print $1}') linux-image-amd64 live-boot \
+ && rm -rf /var/lib/apt/lists/*

@@ -1,0 +1,116 @@
+# the K4510 Linux, LIVE, the package list.  Diverges from k4510.list.chroot in four
+# ways, each of them a consequence of Doc's 2026-09-03 requirements:
+#
+#   + networking      there was NONE in the original list -- no DHCP client,
+#                     no NetworkManager, nothing.  The t520 image would have
+#                     come up with no way to reach anything.  The machine's
+#                     TELNET needs the outside world to dial BBSes.
+#   + iwlwifi         the T480's Intel 8265.  Absent from the original, which
+#                     was built for a wired thin client.
+#   + Mad Pascal deps FPC was already here; git and the checkouts do the rest.
+#   - installer       nothing can be installed: the internal drives are
+#                     blacklisted out of existence, so the launcher would only
+#                     ever show an empty list.
+
+# --- the machine ---
+libsdl2-2.0-0
+alsa-utils
+
+# --- the toolchain, installed by default (Doc, 2026-09-02) ---
+# K4510 is the hosted build with the desktop taken away and the compilers
+# kept.  cc65 builds the ROM; 64tass rebuilds Forth; nasm the Tube; FPC is
+# what rebuilds Mad Pascal's mp AND the MADS assembler beside it.
+build-essential
+libsdl2-dev
+cc65
+acme
+64tass
+nasm
+fp-compiler
+fp-units-fcl
+python3
+git
+make
+unzip
+patch
+
+# --- the keyboard ---
+# A dead-key console layout so the stick types accents like the desktop (Doc,
+# 2026-09-10).  console-setup turns /etc/default/keyboard into a kernel keymap
+# with dead keys; SDL's console keyboard composes accents from it.  kbd brings
+# loadkeys/setupcon.  Without this the console is a plain US map: no accents.
+console-setup
+kbd
+
+# --- somewhere to work ---
+# neovim by name (Doc, 2026-09-03).  vim stays: the machine's own VI is a
+# different thing entirely, and muscle memory for `vi` should land somewhere.
+neovim
+vim
+less
+# tmux: windows on the Linux side, local or as the far end of k4510-connect
+# (Doc, 2026-10-08: "we need to install tmux in the base Debian image")
+tmux
+# htop: what the machine and the Linux under it are doing (Doc, 2026-10-07)
+htop
+ca-certificates
+
+# --- the network ---
+# NetworkManager because the answer to "how do I get on the wifi" has to be a
+# thing you can do from a text console with no notes: Ctrl+Alt+F2, `sudo
+# nmtui`, pick the SSID.  Ethernet needs no ceremony -- DHCP just runs.
+network-manager
+wpasupplicant
+iproute2
+iputils-ping
+telnet
+inetutils-telnetd
+# ftp://, sftp://, scp:// go through curl and ssh on the host (Doc, 2026-09-10);
+# curl's Debian build has the SSH protocols, openssh-client brings ssh/sftp.
+curl
+openssh-client
+# mosh for the Terminal screen over a phone's hotspot: local echo, and a session
+# that survives the network changing under it (Doc, 2026-10-07).  k4510-connect
+# tries it first and falls back to ssh.
+mosh
+# mpg123 for k4510-radio: music from Navidrome, radio stations and podcasts on
+# the Linux beside the machine, mixed with its sound by ALSA (Doc, 2026-10-07)
+mpg123
+
+# --- the hardware ---
+# KMSDRM is the ONLY video path here, so the GPU firmware is not optional:
+# without it there is no KMS, and that appears as a black screen and an SDL
+# failure rather than as anything naming a driver.  The T480 is Intel (UHD
+# 620); the AMD blob stays so the same image still boots the t520.
+firmware-iwlwifi
+firmware-misc-nonfree
+firmware-intel-graphics   # trixie moved i915's firmware here: kbl_dmc (the Dell's display power states, 2026-09-12)
+firmware-linux-free
+firmware-amd-graphics
+
+# CHESS.PRG's engine, on the Tube (program 5)
+stockfish
+
+# The boot splash: the K4510 logo while the machine starts (Plymouth, with the
+# theme in config/includes.chroot/usr/share/plymouth/themes/k4510; Doc,
+# 2026-09-12: "a cool splash logo")
+plymouth
+plymouth-themes
+# Wi-Fi's regulatory database: the kernel asked for regulatory.db at every
+# boot, and without it the radio keeps to the world-safe channels
+wireless-regdb
+# pam_systemd: its absence was "PAM unable to dlopen(pam_systemd.so)" at every
+# login (user@.service stays masked in the layer; nothing needs a user manager)
+libpam-systemd
+# initramfs-tools is set to COMPRESS=zstd, and without the tool it quietly
+# falls back: the 2026-09-13 rebuild's initrd came out 90 MB, twice the last,
+# and no longer fit the image.  Named here, not left to a dependency.
+zstd
+# Measuring the power settings (2026-10-06): powertop (what wakes the machine,
+# what draws, --auto-tune) and turbostat (package C-states, watts), the
+# before and after of every battery change.  k4510-power reads the battery.
+powertop
+linux-cpupower
+# k4510-extras builds the on-disk extras image (mpv, ffmpeg: not in RAM) with
+# mksquashfs (2026-10-08)
+squashfs-tools

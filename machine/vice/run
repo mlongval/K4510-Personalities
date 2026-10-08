@@ -1,0 +1,18 @@
+#!/bin/sh
+# Start one VICE personality: run/<name> is a link to this file.
+# Runs from the image k4510-personality mounted at /opt/personalities/vice.
+# Saved things live in ~/personalities/<name> (the disk, p4); VICE's own
+# settings in ~/.config/vice/vicerc (F12 -> Settings -> Save).
+V=/opt/personalities/vice
+name=$(basename "$0")
+export LD_LIBRARY_PATH=$V/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
+D=$HOME/personalities/$name; mkdir -p "$D"; cd "$D" || exit 1
+# Fullscreen on the KMS display, sound through ALSA (mixed by dmix like the
+# K4510's), and the C64 keyboard laid out by position, not by symbol.
+common="-sounddev alsa -keymap 1"
+case "$name" in
+c64)  exec $V/bin/x64sc $common -VICIIfull "$@" ;;
+c128) exec $V/bin/x128  $common -VICIIfull -VDCfull "$@" ;;
+pet)  exec $V/bin/xpet  $common -CRTCfull "$@" ;;
+*)    echo "vice: no personality called $name"; exit 1 ;;
+esac

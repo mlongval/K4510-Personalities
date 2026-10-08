@@ -1,0 +1,5 @@
+# k4510-base-mimic plus a virtual X display to photograph the personalities
+# (the real machine is KMS; this only proves the image runs on the base).
+FROM localhost/k4510-base-mimic
+RUN apt-get update && apt-get install -y --no-install-recommends xvfb xauth imagemagick x11-apps \
+ && rm -rf /var/lib/apt/lists/*

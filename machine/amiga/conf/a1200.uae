@@ -1,0 +1,10 @@
+; K4510 personality: Amiga 1200, Kickstart 3.1, 2 MB chip + 8 MB fast,
+; Workbench 3.1 on DH0: (the directory ~/personalities/a1200/DH0).
+config_description=K4510 Amiga 1200
+quickstart=A1200,0
+use_gui=no
+kickstart_rom_file=@IMG@/kickstarts/kick31-a1200.rom
+fastmem_size=8
+nr_floppies=1
+filesystem2=rw,DH0:Workbench:@HOME@/DH0,0
+gfx_fullscreen_amiga=fullwindow

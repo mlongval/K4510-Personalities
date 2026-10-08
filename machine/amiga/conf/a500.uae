@@ -1,0 +1,9 @@
+; K4510 personality: Amiga 500, Kickstart 1.3, 512 KB chip + 512 KB slow.
+; Boots Workbench 1.3 from DF0:; F12 swaps disks (~/personalities/a500/floppies).
+config_description=K4510 Amiga 500
+quickstart=A500,0
+use_gui=no
+kickstart_rom_file=@IMG@/kickstarts/kick13-a500.rom
+nr_floppies=2
+floppy0=@HOME@/floppies/amiga-os-134-workbench.adf
+gfx_fullscreen_amiga=fullwindow
