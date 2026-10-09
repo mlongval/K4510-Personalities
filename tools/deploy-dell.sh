@@ -8,9 +8,9 @@
 #              ones kept as *.prev for one rollback)
 #   files   -> ~/personalities/<name>/ (floppies, the A1200's DH0); anything
 #              already there is kept, never overwritten
-# Touches nothing in RAM, the layer, or GRUB, and reboots nothing.  The menu
-# entries and k4510-personality come with the K4510 repo (branch
-# personalities): its layer deploy, and k4510-grub-personalities on Fedora.
+# Touches nothing in RAM, the layer, or GRUB, and reboots nothing.  The
+# spacebar menu (k4510-boot-menu) and k4510-personality come with the K4510
+# repo's layer; a new family shows in the menu as soon as its .list is here.
 set -e
 HOST=${1:-k4510@100.76.140.12}
 HERE=$(cd "$(dirname "$0")/.." && pwd); OUT=$HERE/work/out
