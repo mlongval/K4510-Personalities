@@ -109,7 +109,7 @@ static int k4510_place(struct video_canvas_s *canvas, SDL_Renderer *r, SDL_Rect 
     int W, H, w, h, crop;
     double cw, ch;
     k4510_env();
-    crop = !k4510_borders && k4510_vdc_crop(canvas, src);
+    crop = !k4510_borders && !sdl_menu_state && k4510_vdc_crop(canvas, src);   /* the F12 menu is laid out on the whole canvas */
     if (!k4510_left && !k4510_whole && !crop) {
         return 0;
     }
