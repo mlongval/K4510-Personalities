@@ -1,4 +1,4 @@
-// k4510menu.c -- the K4510 personality's additions to x16emu (BMC64Port,
+// k4510menu.c -- the K4510 personality's additions to x16emu (K4510-Personnalities,
 // tools/build-x16.sh compiles it in and hooks it into video.c):
 //
 //   F12        a menu, like VICE's and the K4510's: Resume, Reset, Warp,
@@ -79,7 +79,7 @@ k4510_init(int logical_w, int logical_h)
 }
 
 // The free rect beside the picture, in output pixels (w == 0: none).  For a
-// sidebar to draw into later; see BMC64Port's README.
+// sidebar to draw into later; see K4510-Personnalities's README.
 SDL_Rect
 k4510_sidebar_rect(void)
 {

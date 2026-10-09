@@ -23,7 +23,7 @@ def edit(old, new, count=1):
     s = s.replace(old, new)
 
 HELPER = r'''
-/* K4510 (BMC64Port) ------------------------------------------------------ */
+/* K4510 (K4510-Personnalities) ------------------------------------------------------ */
 static int k4510_left = -1, k4510_whole = 0, k4510_borders = 1;
 
 static void k4510_env(void)
@@ -278,7 +278,7 @@ s = open(P).read()
 edit("\nvdc_t vdc;\n", r'''
 vdc_t vdc;
 
-/* K4510 (BMC64Port): the raster lines the VDC displayed in the last frame,
+/* K4510 (K4510-Personnalities): the raster lines the VDC displayed in the last frame,
  * for x128's sidebar to crop the borders off (src/arch/sdl/video_sdl2.c). */
 static unsigned int k4510_y0 = ~0u, k4510_y1, k4510_top, k4510_bottom;
 
@@ -316,7 +316,7 @@ open(P, "w").write(s)
 
 P = "src/arch/sdl/menu_video.c"
 s = open(P).read()
-edit("const ui_menu_entry_t c128_video_menu[] = {\n", r'''/* K4510 (BMC64Port): the 40/80 DISPLAY key, latched like the real one.  The
+edit("const ui_menu_entry_t c128_video_menu[] = {\n", r'''/* K4510 (K4510-Personnalities): the 40/80 DISPLAY key, latched like the real one.  The
  * C128 reads it at reset: down = start in 80 columns. */
 static UI_MENU_CALLBACK(k4510_column_key_callback)
 {

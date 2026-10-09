@@ -2,7 +2,7 @@
 # Start the Commander X16 personality (x16emu r49): this is run/x16.
 # Runs from the image k4510-personality mounted at /opt/personalities/x16.
 #
-# F12: the menu (BMC64Port's patch) -- Resume, Reset, Warp, Placement
+# F12: the menu (K4510-Personnalities's patch) -- Resume, Reset, Warp, Placement
 # (centre, or flush left with the right free for a sidebar), Scale (fit or
 # whole multiples), Exit to the K4510.  Also quitting: Alt+F4, or POWEROFF at
 # the BASIC prompt (the X16's own power-off).  Ctrl+R resets.
