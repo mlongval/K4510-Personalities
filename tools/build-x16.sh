@@ -16,6 +16,9 @@ rm -rf x16-emulator-$VER && tar xzf x16-emulator-$VER.tar.gz && cd x16-emulator-
 # a 640x480 mode the laptop's panel may not have.
 sed -i 's/SDL_WINDOW_FULLSCREEN\b/SDL_WINDOW_FULLSCREEN_DESKTOP/g' src/video.c
 grep -q SDL_WINDOW_FULLSCREEN_DESKTOP src/video.c
+# The K4510's additions: an F12 menu (Resume, Reset, Warp, Placement, Scale,
+# Exit to the K4510) and the picture placed flush left, for a sidebar.
+python3 /tools/patches/x16/apply.py
 make -j"$(nproc)" GIT_REV=$VER x16emu >/work/x16-make.log 2>&1 || { tail -30 /work/x16-make.log; exit 1; }
 rm -rf /work/stage/x16 && mkdir -p /work/stage/x16/bin
 cp x16emu /work/stage/x16/bin/

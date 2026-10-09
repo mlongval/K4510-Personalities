@@ -5,14 +5,21 @@
 # settings in ~/.config/vice/vicerc (F12 -> Settings -> Save).
 V=/opt/personalities/vice
 name=$(basename "$0")
+# The placement every personality shares: ~/personalities/display.cfg,
+# placement=left|centre and scale=fit|integer (the X16's F12 menu writes it).
+C=$HOME/personalities/display.cfg
+if [ -f "$C" ]; then
+    v=$(sed -n 's/^placement=//p' "$C"); [ -n "$v" ] && export K4510_PLACEMENT=${K4510_PLACEMENT:-$v}
+    v=$(sed -n 's/^scale=//p' "$C"); [ -n "$v" ] && export K4510_SCALE=${K4510_SCALE:-$v}
+fi
 export LD_LIBRARY_PATH=$V/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
 D=$HOME/personalities/$name; mkdir -p "$D"; cd "$D" || exit 1
 # Fullscreen on the KMS display, sound through ALSA (mixed by dmix like the
 # K4510's), and the C64 keyboard laid out by position, not by symbol.
 common="-sounddev alsa -keymap 1"
 case "$name" in
-c64)  exec $V/bin/x64sc $common -VICIIfull "$@" ;;
+c64)  exec $V/bin/x64sc $common -VICIIfull -reu -reusize 512 "$@" ;;   # the REU: PETSCII Robots REU edition (128K+), and harmless to the rest
 c128) exec $V/bin/x128  $common -VICIIfull -VDCfull "$@" ;;
-pet)  exec $V/bin/xpet  $common -CRTCfull "$@" ;;
+pet)  exec $V/bin/xpet  $common -model 4032 -CRTCfull "$@" ;;   # 40 columns, 32K: what most PET games (PETSCII Robots) want
 *)    echo "vice: no personality called $name"; exit 1 ;;
 esac

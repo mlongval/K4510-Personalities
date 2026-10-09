@@ -16,6 +16,8 @@ rm -rf vice-$VER && tar xzf vice-$VER.tar.gz && cd vice-$VER
 # redirected, which on the machine it always is.  Always make the copy.
 sed -i 's/if ((log_to_file) || (!log_colorize)) {/if (1) {/' src/log.c
 grep -q 'if (1) {' src/log.c
+# The K4510's picture placement (K4510_PLACEMENT=left, K4510_SCALE=integer).
+python3 /tools/patches/vice/apply.py
 ./configure --prefix=$PREFIX --enable-sdl2ui --disable-pdf-docs --disable-html-docs \
     --without-pulse --without-oss --with-alsa --disable-ethernet \
     --without-libieee1284 --disable-catweasel --disable-hardsid --disable-parsid \

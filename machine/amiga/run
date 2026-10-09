@@ -9,6 +9,13 @@
 #   DH0/        the A1200's hard drive, a directory with Workbench 3.1 on it
 A=/opt/personalities/amiga
 name=$(basename "$0")
+# The placement every personality shares: ~/personalities/display.cfg,
+# placement=left|centre and scale=fit|integer (the X16's F12 menu writes it).
+C=$HOME/personalities/display.cfg
+if [ -f "$C" ]; then
+    v=$(sed -n 's/^placement=//p' "$C"); [ -n "$v" ] && export K4510_PLACEMENT=${K4510_PLACEMENT:-$v}
+    v=$(sed -n 's/^scale=//p' "$C"); [ -n "$v" ] && export K4510_SCALE=${K4510_SCALE:-$v}
+fi
 export LD_LIBRARY_PATH=$A/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
 D=$HOME/personalities/$name; mkdir -p "$D/floppies"; cd "$D" || exit 1
 [ -f "$D/$name.uae" ] || sed "s|@HOME@|$D|g; s|@IMG@|$A|g" "$A/conf/$name.uae" > "$D/$name.uae"

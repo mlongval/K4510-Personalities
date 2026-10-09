@@ -14,6 +14,8 @@ rm -rf amiberry-$VER && tar xzf amiberry-$VER.tar.gz && cd amiberry-$VER
 # 8.3.0's non-OpenGL renderer names an SDL3 type that does not exist (the
 # OpenGL build never compiles this file, so upstream did not notice).
 sed -i 's/\bSDL_LogicalPresentation lmode/SDL_RendererLogicalPresentation lmode/' src/osdep/sdl_renderer.cpp
+# The K4510's picture placement (K4510_PLACEMENT=left, K4510_SCALE=integer).
+python3 /tools/patches/amiberry/apply.py
 cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$PREFIX \
     -DUSE_OPENGL=OFF -DUSE_PCEM=OFF -DUSE_PPC=OFF -DUSE_QEMU_PPC=OFF \
     -DUSE_UAENET_PCAP=OFF -DUSE_UAENET_TAP=OFF -DUSE_IPC_SOCKET=OFF \

@@ -11,12 +11,26 @@ Pi bare-metal glue around VICE 3.3; upstream VICE's SDL UI is the better fit.)
 
 | Personality | Emulator | Image |
 |---|---|---|
-| c64, c128, pet | VICE 3.10, SDL2 UI (x64sc, x128, xpet) | `vice.squashfs` ~5 MB |
+| c64 (+512K REU), c128, pet (4032, 40 columns) | VICE 3.10, SDL2 UI (x64sc, x128, xpet) | `vice.squashfs` ~5 MB |
 | a500 (KS 1.3, WB 1.3 in DF0), a1200 (KS 3.1, WB 3.1 on DH0) | Amiberry 8.3.0, SDL3, no OpenGL | `amiga.squashfs` ~18 MB |
 | x16 (Commander X16, ROM r49; drive 8 = `~/personalities/x16`) | x16emu r49, SDL2 | `x16.squashfs` ~0.2 MB |
 
-Quitting back to the K4510: VICE and Amiberry F12 -> Quit; the X16 **Alt+F4**
-or `POWEROFF` at its BASIC prompt (both built into x16emu; the menu says so).
+Quitting back to the K4510: VICE and Amiberry F12 -> Quit; the X16 F12 ->
+Exit to the K4510 (our menu: also Reset, Warp, Placement, Scale), Alt+F4, or
+`POWEROFF` at its BASIC prompt.
+
+**Placement** (all three emulators, build-time patches in `tools/patches/`):
+`K4510_PLACEMENT=left|centre`, `K4510_SCALE=fit|integer`, defaults from
+`~/personalities/display.cfg` (`placement=left`, `scale=integer`; the X16's
+F12 menu writes it). Left puts the picture flush left at full height and
+leaves `{pic right edge, 0, rest of width, full height}` free for a sidebar
+(the K4510's savers.c, later: a pixel-buffer library each emulator dlopens).
+
+**Software** in `~/personalities/` (on p4, where each file browser starts):
+the C64 library curated from Doc's collection by `tools/curate-c64.sh`
+(GAMES DEMOS UTILS LANGUAGES DOCS; MANIFEST.txt says where each came from),
+and Attack of the PETSCII Robots, the free shareware editions from the 8-Bit
+Guy's site (`tools/get-robots.sh`), for the C64 (+REU), C128, PET, Amiga, X16.
 
 VIC-20 and Plus/4 are sidelined (Doc, 2026-10-08).
 
@@ -28,6 +42,7 @@ VIC-20 and Plus/4 are sidelined (Doc, 2026-10-08).
     podman run --rm -v $PWD/work:/work:Z -v $PWD/tools:/tools:ro personalities-builder sh /tools/build-vice.sh
     podman run --rm -v $PWD/work:/work:Z -v $PWD/tools:/tools:ro personalities-builder sh /tools/build-amiberry.sh
     podman run --rm -v $PWD/work:/work:Z -v $PWD/tools:/tools:ro personalities-builder sh /tools/build-x16.sh
+    tools/curate-c64.sh; tools/get-robots.sh   # software for ~/personalities
     tools/make-images.sh             # -> work/out/{personalities,home}
     tools/test-personality.sh c64    # -> work/shots/c64.jpg (Xvfb on the base stand-in)
     tools/deploy-dell.sh             # images to p4, starting files to ~/personalities

@@ -88,4 +88,38 @@ podman run --rm -v "$H/a1200:/h:Z" personalities-builder sh -c '
     mkdir -p /h/DH0/Fonts /h/DH0/Locale /h/DH0/Storage
     cp -an $t/fonts/. /h/DH0/Fonts/; cp -an $t/locale/. /h/DH0/Locale/; cp -an $t/storage/. /h/DH0/Storage/
     chmod -R a+rx,u+w /h/DH0'
+
+# Doc's C64/C128 software, curated (tools/curate-c64.sh -> work/library):
+# GAMES DEMOS UTILS LANGUAGES DOCS, where VICE's file browser starts.
+if [ -d $W/library ]; then
+    cp -a $W/library/c64/. $H/c64/; cp -a $W/library/c128/. $H/c128/
+    cp $W/library/MANIFEST.txt $H/c64/MANIFEST.txt
+fi
+
+# Attack of the PETSCII Robots, shareware (tools/get-robots.sh): each machine's
+# edition where its file browser starts.  The C64 REU edition wants the REU,
+# which run/vice turns on for the C64; the PET's wants a 40-column 4032.
+R=$W/robots/zip
+if [ -d "$R" ]; then
+    unz() { python3 - "$@" <<'PY'
+import zipfile, sys, os
+z, dest = sys.argv[1], sys.argv[2]; os.makedirs(dest, exist_ok=True)
+for i in zipfile.ZipFile(z).infolist():
+    if i.is_dir() or "__MACOSX" in i.filename: continue
+    name = os.path.basename(i.filename)
+    if sys.argv[3:] and not any(name.lower().endswith(x) for x in sys.argv[3:]): continue
+    open(os.path.join(dest, name), "wb").write(zipfile.ZipFile(z).read(i))
+PY
+    }
+    G="GAMES/PetsciiRobots"
+    unz $R/C64-Robots-Shareware-06-04-2022.zip "$H/c64/$G"
+    unz $R/C64-REU-Shareware-07-07-2022.zip "$H/c64/$G"
+    unz $R/C128-shareware-07-07-2022.zip "$H/c128/$G"
+    unz $R/Pet-Robots-Shareware-03-29-2022.zip "$H/pet/$G"
+    mv "$H/pet/$G/petrobots-shareware v1.1.d64" "$H/pet/$G/petrobots-shareware-v1.1.d64"
+    unz $R/Amiga-Robots-Shareware-03-22-2022.zip "$H/a500/floppies" .adf
+    unz $R/Amiga-Robots-Shareware-03-22-2022.zip "$H/a500/manuals" .pdf
+    cp $H/a500/floppies/sharewarerobots-*.adf $H/a1200/floppies/
+    unz $R/X16Robots-12-19-2024.zip "$H/x16/ROBOTS"
+fi
 du -sh $H/*
