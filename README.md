@@ -2,9 +2,9 @@
 
 Other machines for the K4510x, picked at power-on like a MiSTer/MEGA65 core:
 hold **SPACE** at power-on and, just before the K4510 starts, a menu lists
-K4510, Commodore 64, 128, PET, Amiga 500, Amiga 1200. The chosen machine
-runs from RAM, and quitting it (F12 -> Quit) brings up the K4510. No space:
-the K4510, one second later. (A GRUB-entry version came first, but was dropped
+K4510, Commodore 64, 128, PET, Amiga 500, Amiga 1200, Commander X16. The
+chosen machine runs from RAM, and quitting it (F12 -> Quit) brings up the
+K4510. No space: the K4510, one second later. (A GRUB-entry version came first, but was dropped
 the same day: Doc wants Debian to show the choice.)
 (Started 2026-10-08 as "could BMC64 run in a container?" — BMC64 itself is
 Pi bare-metal glue around VICE 3.3; upstream VICE's SDL UI is the better fit.)
@@ -16,24 +16,33 @@ Pi bare-metal glue around VICE 3.3; upstream VICE's SDL UI is the better fit.)
 | x16 (Commander X16, ROM r49; drive 8 = `~/personalities/x16`) | x16emu r49, SDL2 | `x16.squashfs` ~0.2 MB |
 
 Quitting back to the K4510: VICE and Amiberry F12 -> Quit; the X16 F12 ->
-Exit to the K4510 (our menu: also Reset, Warp, Placement, Scale), Alt+F4, or
+Exit to the K4510 (our menu: also Reset, Warp, Placement, Scale, Sidebar), Alt+F4, or
 `POWEROFF` at its BASIC prompt.
 
 **Placement** (all three emulators, build-time patches in `tools/patches/`):
 `K4510_PLACEMENT=left|centre`, `K4510_SCALE=fit|integer`, defaults from
-`~/personalities/display.cfg` (`placement=left`, `scale=integer`; the X16's
-F12 menu writes it). Left puts the picture flush left at full height and
-leaves `{pic right edge, 0, rest of width, full height}` free for a sidebar
-(the K4510's savers.c, later: a pixel-buffer library each emulator dlopens).
+`~/personalities/display.cfg`, shared by all three: `placement=left|centre`,
+`scale=fit|integer`, `sidebar=NAME`, `vdcborders=on|off` (starting file:
+left, fit, antfarm). The X16's F12 menu writes the first three, the C128's
+the last; each keeps the other lines. Left puts the picture flush left at
+full height and leaves the rest of the width free for a **sidebar**: the
+K4510's scenes (`~/k4510/sdl/libk4510side.so`, dlopened via
+`tools/patches/common/k4510host.c`): none antfarm matrix space river
+dreamfall tetris halloween christmas.
 
-**C128**, placement left: the other display lives in the sidebar (the VDC
-with its borders cropped off), F12 -> Video settings -> VICII/VDC swaps them.
+**C128**, placement left: the other display lives in the sidebar, live (the
+VDC with its borders cropped off: its 80x25 text area plus 8 pixels, so the
+80-column text is readable), F12 -> Video settings -> VICII/VDC swaps them.
+At power-on the screen the C128 did not start on is blank (black on black)
+until something is printed to it.
 C128 keys on the PC: ESC = F9 (so ESC X = F9 then X, switching the BASIC
 screen), 40/80 DISPLAY = keypad `/`, or F12 -> Video settings -> 40/80 key
 (latched; the C128 reads it at reset, so down + reset = 80 columns).
 F12 -> Video settings -> VDC borders off: the VDC as the main display shows
 the same cropped text area, scaled up (saved as `vdcborders=off` in
-display.cfg; the X16's menu keeps that line when it saves).
+display.cfg). While the F12 menu is open the VDC is shown whole, borders and
+all, because VICE lays the menu out on the whole frame (cropped, its top rows
+were lost).
 `K4510_C128_DUAL=0` / `K4510_VDC_CROP=0` turn the dual display / the crop off.
 
 **Software** in `~/personalities/` (on p4, where each file browser starts):
@@ -77,6 +86,12 @@ K4510 does) instead of a switch to a 640x480 mode the panel may not have.
 ## Where things live on the machine
 
 - p4 `/personalities/*.squashfs` + `*.list` — the images (copied to RAM only when chosen)
+  and `*.prev`, the ones before the last deploy. The RAM copy
+  (`/run/k4510-personalities/<fam>.squashfs`, mounted at
+  `/opt/personalities/<fam>`) stays until a reboot, so a new image deployed
+  while the K4510 runs takes effect after a reboot, or after (machine closed)
+  `sudo umount /opt/personalities/<fam>; sudo rm /run/k4510-personalities/<fam>.squashfs`.
+  Copy to p4 on battery under `sudo -n systemd-inhibit`.
 - `~/personalities/<name>/` — floppies, DH0, `.uae`; VICE settings in `~/.config/vice/vicerc`
 - Kickstarts/Workbench came from `/media/doc/Internal_3TB/Emulation/Amiga` and
   `Internal_2TB/.../Documents/Amiga` (KS 1.3 crc c4f0f55f, KS 3.1 A1200 crc 1483a091).
