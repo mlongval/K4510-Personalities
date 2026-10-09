@@ -13,6 +13,20 @@
 # instead of the directory.
 X=/opt/personalities/x16
 export K4510_X16_SETTINGS=$HOME/personalities/display.cfg   # placement, shared with the others
+# The placement every personality shares: ~/personalities/display.cfg,
+# placement=left|centre, scale=fit|integer, sidebar=NAME (the X16's F12
+# menu writes it).
+C=$HOME/personalities/display.cfg
+if [ -f "$C" ]; then
+    v=$(sed -n 's/^placement=//p' "$C"); [ -n "$v" ] && export K4510_PLACEMENT=${K4510_PLACEMENT:-$v}
+    v=$(sed -n 's/^scale=//p' "$C"); [ -n "$v" ] && export K4510_SCALE=${K4510_SCALE:-$v}
+    v=$(sed -n 's/^sidebar=//p' "$C"); [ -n "$v" ] && [ -z "$K4510_SIDEBAR" ] && export K4510_SIDEBAR="$v state=$HOME/personalities/sidebar"
+fi
+# The K4510's sidebar scenes (its layer builds the library); sidebar=NAME in
+# display.cfg picks one: antfarm matrix space river dreamfall tetris
+# halloween christmas, or none.
+[ -z "$K4510_SIDEBAR_LIB" ] && [ -f "$HOME/k4510/sdl/libk4510side.so" ] && export K4510_SIDEBAR_LIB=$HOME/k4510/sdl/libk4510side.so
+mkdir -p "$HOME/personalities/sidebar"
 export LD_LIBRARY_PATH=$X/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
 D=$HOME/personalities/x16; mkdir -p "$D"; cd "$D" || exit 1
 # Fullscreen on the KMS display; under X (a test, a desktop) a window.

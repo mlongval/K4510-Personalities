@@ -7,6 +7,8 @@
 //   placement  the picture centred (x16emu's own way), or flush LEFT at full
 //              height, which leaves a rect on the right free for a sidebar.
 //   scale      fit the screen, or whole multiples of 480 lines (sharp).
+//   sidebar    the K4510's scene in the free area (libk4510side.so, found
+//              by K4510_SIDEBAR_LIB; K4510_SIDEBAR names the scene).
 //
 // Placement and scale start from K4510_PLACEMENT=left|centre and
 // K4510_SCALE=fit|integer, and what the menu sets is kept in the file named
@@ -19,6 +21,7 @@
 #include <string.h>
 #include "k4510menu.h"
 #include "timing.h"
+#include "k4510host_sdl2.h"
 
 extern unsigned char fontdata[];        // rendertext.c's 5x7 font, 0x20..0x7f
 extern bool warp_mode;
@@ -36,7 +39,9 @@ save_settings(void)
 	const char *p = getenv("K4510_X16_SETTINGS");
 	FILE *f = p ? fopen(p, "w") : NULL;
 	if (!f) return;
-	fprintf(f, "placement=%s\nscale=%s\n", place_left ? "left" : "centre", scale_int ? "integer" : "fit");
+	char name[32];
+	sscanf(k4510host_scene(), "%31s", name);
+	fprintf(f, "placement=%s\nscale=%s\nsidebar=%s\n", place_left ? "left" : "centre", scale_int ? "integer" : "fit", name);
 	fclose(f);
 }
 
@@ -91,6 +96,7 @@ k4510_present_copy(SDL_Renderer *r, SDL_Texture *t)
 	SDL_RenderCopy(r, t, NULL, &d);
 	sidebar = (SDL_Rect){ d.x + d.w, 0, W - (d.x + d.w), H };
 	if (!place_left) sidebar.w = 0;
+	else k4510host_sdl2(r, sidebar);
 }
 
 // --- the menu: drawn into a copy of the frame, 2x the debugger's 5x7 font
@@ -131,7 +137,25 @@ fill(int x, int y, int w, int h, uint32_t rgb)
 	}
 }
 
-enum { M_RESUME, M_RESET, M_WARP, M_PLACE, M_SCALE, M_EXIT, M_N };
+enum { M_RESUME, M_RESET, M_WARP, M_PLACE, M_SCALE, M_SIDEBAR, M_EXIT, M_N };
+
+static const char *scenes[] = { "none", "antfarm", "matrix", "space", "river", "dreamfall", "tetris", "halloween", "christmas" };
+#define N_SCENES (int)(sizeof scenes / sizeof scenes[0])
+
+static void
+next_scene(int dir)
+{
+	char name[32] = "none";
+	sscanf(k4510host_scene(), "%31s", name);
+	int i = 0;
+	while (i < N_SCENES && strcmp(scenes[i], name)) i++;
+	i = ((i < N_SCENES ? i : 0) + dir + N_SCENES) % N_SCENES;
+	char cfg[300];
+	const char *home = getenv("HOME");
+	if (i == 0) snprintf(cfg, sizeof cfg, "none");
+	else snprintf(cfg, sizeof cfg, "%s state=%s/personalities/sidebar", scenes[i], home ? home : "/tmp");
+	k4510host_set(cfg);
+}
 
 static void
 draw_menu(const uint8_t *frame, int sel)
@@ -149,6 +173,12 @@ draw_menu(const uint8_t *frame, int sel)
 		case M_WARP:   sprintf(line, "Warp: %s", warp_mode ? "on" : "off"); break;
 		case M_PLACE:  sprintf(line, "Placement: %s", place_left ? "left" : "centre"); break;
 		case M_SCALE:  sprintf(line, "Scale: %s", scale_int ? "whole" : "fit"); break;
+		case M_SIDEBAR: {
+			char name[32] = "none";
+			sscanf(k4510host_scene(), "%31s", name);
+			snprintf(line, sizeof line, "Sidebar: %s", name);
+			break;
+		}
 		case M_EXIT:   strcpy(line, "Exit to the K4510"); break;
 		}
 		int ly = y + 40 + i * 26;
@@ -185,6 +215,7 @@ k4510_menu(SDL_Renderer *r, SDL_Texture *t, const uint8_t *frame)
 			if (sel == M_WARP) machine_toggle_warp();
 			if (sel == M_PLACE) { place_left = !place_left; save_settings(); }
 			if (sel == M_SCALE) { scale_int = !scale_int; save_settings(); }
+			if (sel == M_SIDEBAR) { next_scene(k == SDLK_LEFT ? -1 : 1); save_settings(); }
 		}
 	}
 	// swallow what is still queued (the F12 release, a held key's repeats)

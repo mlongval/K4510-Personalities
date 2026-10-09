@@ -89,6 +89,11 @@ podman run --rm -v "$H/a1200:/h:Z" personalities-builder sh -c '
     cp -an $t/fonts/. /h/DH0/Fonts/; cp -an $t/locale/. /h/DH0/Locale/; cp -an $t/storage/. /h/DH0/Storage/
     chmod -R a+rx,u+w /h/DH0'
 
+# Where the pictures go, for every personality (the X16's F12 menu changes
+# it; deploy-dell.sh never overwrites one already there): left, with the
+# K4510's ant farm in the free area -- the C128's other display, on the C128.
+printf 'placement=left\nscale=fit\nsidebar=antfarm\n' > $H/display.cfg
+
 # Doc's C64/C128 software, curated (tools/curate-c64.sh -> work/library):
 # GAMES DEMOS UTILS LANGUAGES DOCS, where VICE's file browser starts.
 if [ -d $W/library ]; then
