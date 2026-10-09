@@ -74,3 +74,9 @@ hunks: the changes are small, but they are not written for it.
 It unpacks each release twice and changes one copy exactly as the build does
 (`tools/build-*.sh`, then `tools/patches/<emulator>/apply.py`). The diff
 between the two copies is the patch. Run again, it writes the same bytes.
+
+## License
+
+Each patch is offered under the license of the project it changes: VICE
+GPL-2.0-or-later, Amiberry GPL-3.0, the X16 emulator BSD-2-Clause.  The new
+files they add (`k4510host*`, `k4510menu*`) are also MIT (the repo's `LICENSE`).

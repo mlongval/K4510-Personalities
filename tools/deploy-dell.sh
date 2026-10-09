@@ -2,18 +2,21 @@
 # Put the personalities on a K4510 machine's SAVED partition (p4), from here.
 # Run with the machine booted into the K4510 (its Linux, not Fedora):
 #
-#   tools/deploy-dell.sh [k4510@100.76.140.12]
+#   tools/deploy-dell.sh [user@host]       (default: DEPLOY_HOST in local.cfg)
 #
 #   images  -> /run/live/persistence/<p4>/personalities/   (root's; the old
 #              ones kept as *.prev for one rollback)
 #   files   -> ~/personalities/<name>/ (floppies, the A1200's DH0); anything
 #              already there is kept, never overwritten
 # Touches nothing in RAM, the layer, or GRUB, and reboots nothing.  The
-# spacebar menu (k4510-boot-menu) and k4510-personality come with the K4510
-# repo's layer; a new family shows in the menu as soon as its .list is here.
+# Personality Chooser (k4510-chooser, k4510-session) and k4510-personality come
+# with the K4510 repo's layer; a new family shows in the Chooser as soon as its
+# .list is here.
 set -e
-HOST=${1:-k4510@100.76.140.12}
-HERE=$(cd "$(dirname "$0")/.." && pwd); OUT=$HERE/work/out
+HERE=$(cd "$(dirname "$0")/.." && pwd)
+[ -f "$HERE/local.cfg" ] && . "$HERE/local.cfg"
+HOST=${1:-${DEPLOY_HOST:?give user@host, or set DEPLOY_HOST in local.cfg}}
+OUT=$HERE/work/out
 [ -f "$OUT/personalities/vice.squashfs" ] || { echo "no images: tools/make-images.sh first"; exit 1; }
 tar -C "$OUT" -cf - personalities home | ssh "$HOST" '
     set -e; T=$(mktemp -d); tar -C $T -xf -

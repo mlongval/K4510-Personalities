@@ -94,5 +94,17 @@ K4510 does) instead of a switch to a 640x480 mode the panel may not have.
   `sudo umount /opt/personalities/<fam>; sudo rm /run/k4510-personalities/<fam>.squashfs`.
   Copy to p4 on battery under `sudo -n systemd-inhibit`.
 - `~/personalities/<name>/` — floppies, DH0, `.uae`; VICE settings in `~/.config/vice/vicerc`
-- Kickstarts/Workbench came from `/media/doc/Internal_3TB/Emulation/Amiga` and
-  `Internal_2TB/.../Documents/Amiga` (KS 1.3 crc c4f0f55f, KS 3.1 A1200 crc 1483a091).
+- Kickstarts and Workbench are your own, named in `local.cfg` (copy
+  `local.cfg.example`; it is not tracked): KS 1.3 crc c4f0f55f, KS 3.1 A1200
+  crc 1483a091.  The C64 collection (`C64_COLLECTION`) and the machine to
+  deploy to (`DEPLOY_HOST`) are named there too.
+
+## License
+
+MIT (`LICENSE`) for this repo's own code: the scripts, the sidebar glue
+(`tools/patches/common/`) and the X16's F12 menu (`tools/patches/x16/k4510menu.*`).
+The patches in `patches/` change VICE (GPL-2.0-or-later), Amiberry (GPL-3.0)
+and the X16 emulator (BSD-2-Clause); a patched tree is under its project's
+license.  No ROMs, Kickstarts or games are in this repo: the X16 ROM and the
+PETSCII Robots shareware are downloaded from their official sources at build
+time, and the Amiga and C64 files come from your own (`local.cfg`).

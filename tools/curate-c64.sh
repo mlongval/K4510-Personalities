@@ -1,11 +1,12 @@
 #!/bin/sh
-# Curate a small, organized C64/C128 software library from Doc's collection on
-# ubuntu-s1 into work/library/{c64,c128}, for ~/personalities/<name> on the
+# Curate a small, organized C64/C128 software library from a local collection
+# (C64_COLLECTION in local.cfg: a TOSEC C64 set and a few folders, laid out as
+# below) into work/library/{c64,c128}, for ~/personalities/<name> on the
 # K4510's disk (p4), where VICE's file browser starts.
 #
 #   tools/curate-c64.sh            -> work/library/c64/GAMES ...  + MANIFEST.txt
 #
-# READ-ONLY from /media/doc/Internal_3TB/Emulation: zips are read with python's
+# READ-ONLY from the collection: zips are read with python's
 # zipfile, nothing is written there.  Re-runnable: work/library is rebuilt.
 # Picks one version per title: TOSEC names, no alternates ([a]), no bad dumps
 # ([b]), no hacks ([h]), English, fewest extra flags; all sides of a
@@ -13,11 +14,13 @@
 # (the shareware builds come from the 8-Bit Guy, see make-images.sh).
 set -e
 HERE=$(cd "$(dirname "$0")/.." && pwd)
-exec python3 -I - "$HERE/work/library" <<'PY'
+[ -f "$HERE/local.cfg" ] && . "$HERE/local.cfg"
+[ -d "${C64_COLLECTION:-}" ] || { echo "curate-c64.sh: set C64_COLLECTION in local.cfg"; exit 1; }
+exec python3 -I - "$HERE/work/library" "$C64_COLLECTION" <<'PY'
 import os, re, sys, zipfile, shutil, glob
 
 OUT = sys.argv[1]
-EMU = '/media/doc/Internal_3TB/Emulation'
+EMU = sys.argv[2]
 TOSEC = EMU + '/Commodore64/C64-Ultimate-Software-Collection/TOSEC.2016.11.11.Commodore.C64.AlphaBot'
 CARTS = EMU + '/Commodore64/C64_Carts'
 def T(kind, fmt): return f'{TOSEC}/Commodore C64 - {kind} - [{fmt}]'

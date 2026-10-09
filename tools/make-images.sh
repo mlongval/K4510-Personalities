@@ -15,11 +15,14 @@
 set -e
 HERE=$(cd "$(dirname "$0")/.." && pwd)
 W=$HERE/work; OUT=$W/out; IMG=$W/img
-EMU=${EMU:-/media/doc/Internal_3TB/Emulation/Amiga}
-KS13="$EMU/AmigaStuff/Kickstarts/Kickstart 1.3 (34.5) (A500-A2500-A3000-CDTV) (Commodore) (1987)[!].rom"
-KS31="/media/doc/Internal_2TB/User_Storage/Mike/Copied from KDE machine/Documents/Amiga/Kickstarts/Kickstart-v3.1-rev-40.68-1993-Commodore-A1200.rom"
-WB="$EMU/Workbench"
-GAMES="/media/doc/Internal_2TB/User_Storage/Mike/Copied from KDE machine/Documents/Amiga/Floppies"
+# Your own Amiga files -- Kickstart ROMs are not ours to give away -- named in
+# local.cfg (see local.cfg.example), or in the environment.
+[ -f "$HERE/local.cfg" ] && . "$HERE/local.cfg"
+KS13=${KS13:-$HOME/Amiga/kick13-a500.rom}          # Kickstart 1.3 (34.5), A500
+KS31=${KS31:-$HOME/Amiga/kick31-a1200.rom}         # Kickstart 3.1 (40.68), A1200
+WB=${WB:-$HOME/Amiga/Workbench}                    # amiga-os-134-*.adf, amiga-os-310-*.adf
+GAMES=${GAMES:-$HOME/Amiga/Floppies}               # optional: more .adf for the A500
+for f in "$KS13" "$KS31" "$WB"; do [ -e "$f" ] || { echo "make-images.sh: missing $f (set it in local.cfg)"; exit 1; }; done
 rm -rf "$IMG" "$OUT"; mkdir -p "$IMG" "$OUT/personalities" "$OUT/home/personalities"
 
 # --- vice: only the three machines, their data, and the disk tools
