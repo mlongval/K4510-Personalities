@@ -1,0 +1,19 @@
+#!/bin/sh
+# Start the Commander X16 personality (x16emu r49): this is run/x16.
+# Runs from the image k4510-personality mounted at /opt/personalities/x16.
+#
+# Quitting, back to the K4510: Alt+F4, or POWEROFF at the BASIC prompt (the
+# X16's own power-off; the emulator exits on it).  Ctrl+R resets.
+#
+# Saved things live in ~/personalities/x16 (the disk, p4): the directory is
+# the X16's drive 8 (HostFS: LOAD/SAVE/DOS"$" read and write plain files
+# there), nvram.bin keeps the clock's NVRAM.  An sdcard.img put there is used
+# instead of the directory.
+X=/opt/personalities/x16
+export LD_LIBRARY_PATH=$X/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
+D=$HOME/personalities/x16; mkdir -p "$D"; cd "$D" || exit 1
+# Fullscreen on the KMS display; under X (a test, a desktop) a window.
+[ -n "$DISPLAY" ] || set -- -fullscreen "$@"
+set -- -rom $X/rom.bin -nvram "$D/nvram.bin" -rtc "$@"
+[ -f "$D/sdcard.img" ] && set -- -sdcard "$D/sdcard.img" "$@" || set -- -fsroot "$D" "$@"
+exec $X/bin/x16emu "$@"

@@ -4,6 +4,7 @@
 #
 #   work/out/personalities/vice.squashfs   x64sc x128 xpet + ROMs + libs
 #   work/out/personalities/amiga.squashfs  amiberry + 2 Kickstarts + libs
+#   work/out/personalities/x16.squashfs    x16emu + the X16 ROM (r49)
 #   work/out/personalities/*.list          name<TAB>title, one per personality
 #   work/out/home/personalities/<name>/    floppies, the A1200's DH0 -- these
 #                                          go to the disk (p4), never to RAM
@@ -36,6 +37,12 @@ cp "$KS13" $A/kickstarts/kick13-a500.rom; cp "$KS31" $A/kickstarts/kick31-a1200.
 cp "$HERE/machine/amiga/run" $A/run/amiga; cp "$HERE/machine/amiga/conf/"*.uae $A/conf/
 cp "$HERE/machine/amiga/list" $A/list
 
+# --- x16
+X=$IMG/x16; S=$W/stage/x16
+mkdir -p $X/bin $X/lib $X/run
+cp $S/bin/x16emu $X/bin/; cp $S/rom.bin $X/
+cp "$HERE/machine/x16/run" $X/run/x16; cp "$HERE/machine/x16/list" $X/list
+
 for fam in vice amiga; do
     for n in $(cut -f1 $IMG/$fam/list); do ln -s $fam $IMG/$fam/run/$n; done
 done
@@ -43,7 +50,7 @@ done
 # strip, bundle the missing libraries (until nothing is missing), squash
 podman run --rm -v "$W:/work:Z" personalities-builder sh -c '
     find /work/img -type f \( -path "*/bin/*" -o -name "*.so*" \) -exec sh -c "file -b \"\$1\" | grep -q ELF && strip --strip-unneeded \"\$1\"" _ {} \;'
-for fam in vice amiga; do
+for fam in vice amiga x16; do
     for pass in 1 2 3 4 5; do
         missing=$(podman run --rm -v "$IMG/$fam:/opt/personalities/$fam:ro,Z" k4510-base-mimic sh -c "
             export LD_LIBRARY_PATH=/opt/personalities/$fam/lib:/opt/personalities/$fam/lib/amiberry
@@ -64,7 +71,7 @@ done
 
 # --- the user's starting files (the disk, not RAM)
 H=$OUT/home/personalities
-mkdir -p $H/c64 $H/c128 $H/pet $H/a500/floppies $H/a1200/floppies
+mkdir -p $H/c64 $H/c128 $H/pet $H/x16 $H/a500/floppies $H/a1200/floppies
 cp "$WB"/amiga-os-134-*.adf $H/a500/floppies/
 cp "$GAMES"/*.adf $H/a500/floppies/ 2>/dev/null || true
 rm -f $H/a500/floppies/wb31-*.adf $H/a500/floppies/EmergencyBootFloppy.adf
