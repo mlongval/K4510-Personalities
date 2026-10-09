@@ -42,7 +42,7 @@ does not compile (`sdl_renderer.cpp`, a misnamed SDL3 type). And one change:
 x16emu's fullscreen becomes FULLSCREEN_DESKTOP (the panel's own mode, as the
 K4510 does) instead of a switch to a 640x480 mode the panel may not have.
 
-## The K4510 side (K4510 repo, master: 745d8e8 + spacebar menu a5cdeb0; X16 words on branch `personalities-x16`)
+## The K4510 side (K4510 repo, master: 745d8e8 + spacebar menu a5cdeb0 + X16 words 39a0cb7)
 
 - `linux/config/includes.chroot/usr/local/bin/k4510-personality` — copy the image to /run, mount, run
 - `linux/config/includes.chroot/usr/local/bin/k4510-boot-menu` — 1 s wait for a held space, then the menu
