@@ -1,4 +1,4 @@
-/* k4510host -- the emulators' side of the K4510 sidebar (K4510-Personnalities).
+/* k4510host -- the emulators' side of the K4510 sidebar (K4510-Personalities).
  * libk4510side.so (the K4510 repo's sdl/k4510side.h) draws a scene into
  * pixels; this finds it (K4510_SIDEBAR_LIB), starts the scene named by
  * K4510_SIDEBAR ("antfarm state=DIR"), and keeps a buffer in the scene's own

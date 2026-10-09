@@ -1,6 +1,6 @@
 #!/bin/sh
 # VICE with the SDL2 UI (not GTK) for the C64 / C128 / PET personalities.
-# Runs INSIDE the builder container; /work is ~/Projects/K4510-Personnalities/work.
+# Runs INSIDE the builder container; /work is ~/Projects/K4510-Personalities/work.
 #   prefix /opt/personalities/vice is where its squashfs is mounted on the
 #   machine, so VICE finds its ROMs and keymaps at the compiled-in path.
 set -e

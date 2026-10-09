@@ -28,7 +28,7 @@ TOP = r'''#include <cmath>
 #include <algorithm>
 #include "k4510host.c"
 
-// K4510 (K4510-Personnalities): what the logical presentation was, while it is set
+// K4510 (K4510-Personalities): what the logical presentation was, while it is set
 // aside for this frame (k4510_restore), and the sidebar's texture.
 static int k4510_restore = 0, k4510_rlw = 0, k4510_rlh = 0;
 static SDL_RendererLogicalPresentation k4510_rmode = SDL_LOGICAL_PRESENTATION_DISABLED;
