@@ -1,0 +1,592 @@
+diff -ruN a/src/arch/sdl/k4510host.c b/src/arch/sdl/k4510host.c
+--- a/src/arch/sdl/k4510host.c
++++ b/src/arch/sdl/k4510host.c
+@@ -0,0 +1,96 @@
++/* k4510host.c -- see k4510host.h. */
++#include <dlfcn.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <time.h>
++#include "k4510host.h"
++
++static int (*s_init)(const char *);
++static void (*s_draw)(uint32_t *, int, int, int, uint32_t);
++static void (*s_quit)(void);
++static int loaded, running;
++static char scene[128] = "none";
++static uint32_t *buf;
++static int bw, bh, last_ms = -1000;
++
++static uint32_t
++now_ms(void)
++{
++	struct timespec t;
++	clock_gettime(CLOCK_MONOTONIC, &t);
++	return (uint32_t)(t.tv_sec * 1000 + t.tv_nsec / 1000000);
++}
++
++static void
++stop(void)
++{
++	if (running && s_quit) s_quit();
++	running = 0;
++}
++
++static void
++load(void)
++{
++	loaded = 1;
++	const char *lib = getenv("K4510_SIDEBAR_LIB");
++	void *h = lib && *lib ? dlopen(lib, RTLD_NOW | RTLD_LOCAL) : NULL;
++	if (!h) {
++		if (lib && *lib) fprintf(stderr, "k4510host: %s: %s\n", lib, dlerror());
++		return;
++	}
++	int (*api)(void) = (int (*)(void))dlsym(h, "k4510side_api");
++	s_init = (int (*)(const char *))dlsym(h, "k4510side_init");
++	s_draw = (void (*)(uint32_t *, int, int, int, uint32_t))dlsym(h, "k4510side_draw");
++	s_quit = (void (*)(void))dlsym(h, "k4510side_quit");
++	if (!api || api() != 1 || !s_init || !s_draw || !s_quit) {
++		fprintf(stderr, "k4510host: %s is not API 1\n", lib);
++		s_init = NULL; s_draw = NULL; s_quit = NULL;
++		return;
++	}
++	atexit(stop);
++	k4510host_set(getenv("K4510_SIDEBAR"));
++}
++
++void
++k4510host_set(const char *config)
++{
++	if (!loaded) load();
++	stop();
++	snprintf(scene, sizeof scene, "%s", config && *config ? config : "none");
++	if (!s_init || !strncmp(scene, "none", 4)) return;
++	if (s_init(scene) == 0) running = 1;
++	else fprintf(stderr, "k4510host: no sidebar scene \"%s\"\n", scene);
++	last_ms = -1000;
++}
++
++const char *
++k4510host_scene(void)
++{
++	return scene;
++}
++
++int
++k4510host_frame(int area_w, int area_h, uint32_t **px, int *w, int *h, int *k, int *fresh)
++{
++	if (!loaded) load();
++	if (!running || area_w < 16 || area_h < 16) return 0;
++	/* machine pixels: a whole number k that brings the height to 400 or less */
++	int kk = (area_h + 399) / 400;
++	int nw = area_w / kk, nh = area_h / kk;
++	*fresh = 0;
++	if (nw != bw || nh != bh) {
++		free(buf);
++		buf = (uint32_t *)calloc((size_t)nw * nh, 4);
++		if (!buf) { bw = bh = 0; return 0; }
++		bw = nw; bh = nh; last_ms = -1000;
++	}
++	uint32_t ms = now_ms();
++	if ((int)(ms - (uint32_t)last_ms) >= 33 || last_ms == -1000) {
++		s_draw(buf, bw, bh, bw, ms);
++		last_ms = (int)ms;
++		*fresh = 1;
++	}
++	*px = buf; *w = bw; *h = bh; *k = kk;
++	return 1;
++}
+diff -ruN a/src/arch/sdl/k4510host.h b/src/arch/sdl/k4510host.h
+--- a/src/arch/sdl/k4510host.h
++++ b/src/arch/sdl/k4510host.h
+@@ -0,0 +1,24 @@
++/* k4510host -- the emulators' side of the K4510 sidebar (K4510-Personalities).
++ * libk4510side.so (the K4510 repo's sdl/k4510side.h) draws a scene into
++ * pixels; this finds it (K4510_SIDEBAR_LIB), starts the scene named by
++ * K4510_SIDEBAR ("antfarm state=DIR"), and keeps a buffer in the scene's own
++ * machine-pixel size for the free area.  No SDL here: the SDL2 emulators and
++ * the SDL3 one each upload the buffer and scale it up themselves. */
++#ifndef K4510HOST_H
++#define K4510HOST_H
++#include <stdint.h>
++#ifdef __cplusplus
++extern "C" {
++#endif
++/* For a free area of area_w x area_h output pixels: the scene's pixels
++ * (*px, *w x *h, pitch = *w) and the whole number *k to scale them by, or 0
++ * when there is no sidebar (no library, no scene, no area).  *fresh is 1
++ * when the pixels changed since the last call (the scene runs at 30 fps). */
++int k4510host_frame(int area_w, int area_h, uint32_t **px, int *w, int *h, int *k, int *fresh);
++/* Change the scene ("none" or NULL: no sidebar) -- the X16's F12 menu. */
++void k4510host_set(const char *config);
++const char *k4510host_scene(void);
++#ifdef __cplusplus
++}
++#endif
++#endif
+diff -ruN a/src/arch/sdl/k4510host_sdl2.c b/src/arch/sdl/k4510host_sdl2.c
+--- a/src/arch/sdl/k4510host_sdl2.c
++++ b/src/arch/sdl/k4510host_sdl2.c
+@@ -0,0 +1,24 @@
++/* k4510host_sdl2.c -- see k4510host_sdl2.h. */
++#include "k4510host_sdl2.h"
++
++void
++k4510host_sdl2(SDL_Renderer *r, SDL_Rect area)
++{
++	static SDL_Renderer *tr;
++	static SDL_Texture *t;
++	static int tw, th;
++	uint32_t *px;
++	int w, h, k, fresh;
++	if (!k4510host_frame(area.w, area.h, &px, &w, &h, &k, &fresh)) return;
++	if (!t || tr != r || tw != w || th != h) {
++		if (t && tr == r) SDL_DestroyTexture(t);
++		t = SDL_CreateTexture(r, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, w, h);
++		if (!t) return;
++		SDL_SetTextureScaleMode(t, SDL_ScaleModeNearest);
++		SDL_SetTextureBlendMode(t, SDL_BLENDMODE_NONE);
++		tr = r; tw = w; th = h; fresh = 1;
++	}
++	if (fresh) SDL_UpdateTexture(t, NULL, px, w * 4);
++	SDL_Rect d = { area.x, area.y + (area.h - h * k) / 2, w * k, h * k };
++	SDL_RenderCopy(r, t, NULL, &d);
++}
+diff -ruN a/src/arch/sdl/k4510host_sdl2.h b/src/arch/sdl/k4510host_sdl2.h
+--- a/src/arch/sdl/k4510host_sdl2.h
++++ b/src/arch/sdl/k4510host_sdl2.h
+@@ -0,0 +1,14 @@
++/* The sidebar drawn by an SDL2 program into the free area (output pixels,
++ * with the logical size off).  Nothing happens without a scene. */
++#ifndef K4510HOST_SDL2_H
++#define K4510HOST_SDL2_H
++#include <SDL.h>
++#include "k4510host.h"
++#ifdef __cplusplus
++extern "C" {
++#endif
++void k4510host_sdl2(SDL_Renderer *r, SDL_Rect area);
++#ifdef __cplusplus
++}
++#endif
++#endif
+diff -ruN a/src/arch/sdl/menu_video.c b/src/arch/sdl/menu_video.c
+--- a/src/arch/sdl/menu_video.c
++++ b/src/arch/sdl/menu_video.c
+@@ -785,6 +785,32 @@
+ }
+ #endif /* USE_SDL2UI */
+ 
++/* K4510 (K4510-Personalities): the 40/80 DISPLAY key, latched like the real one.  The
++ * C128 reads it at reset: down = start in 80 columns. */
++static UI_MENU_CALLBACK(k4510_column_key_callback)
++{
++    int up = 1;
++
++    resources_get_int("C128ColumnKey", &up);
++    if (activated) {
++        resources_set_int("C128ColumnKey", !up);
++        return NULL;
++    }
++    return up ? "up (40 cols at reset)" : "down (80 cols at reset)";
++}
++
++/* K4510: the VDC's borders as the main display (video_sdl2.c keeps it). */
++extern int k4510_vdc_borders(int toggle);
++
++static UI_MENU_CALLBACK(k4510_vdc_borders_callback)
++{
++    if (activated) {
++        k4510_vdc_borders(1);
++        return NULL;
++    }
++    return k4510_vdc_borders(0) ? "on" : "off";
++}
++
+ const ui_menu_entry_t c128_video_menu[] = {
+     SDL_MENU_ITEM_TITLE("Video output"),
+     {   .string   = "VICII (40 cols)",
+@@ -804,6 +830,14 @@
+         .data     = (ui_callback_data_t)VIDEO_OUTPUT_DUAL_WINDOW
+     },
+ #endif
++    {   .string   = "40/80 key",
++        .type     = MENU_ENTRY_OTHER,
++        .callback = k4510_column_key_callback
++    },
++    {   .string   = "VDC borders",
++        .type     = MENU_ENTRY_OTHER,
++        .callback = k4510_vdc_borders_callback
++    },
+     SDL_MENU_ITEM_SEPARATOR,
+ 
+     {   .string   = "VICII border mode",
+diff -ruN a/src/arch/sdl/video_sdl2.c b/src/arch/sdl/video_sdl2.c
+--- a/src/arch/sdl/video_sdl2.c
++++ b/src/arch/sdl/video_sdl2.c
+@@ -48,6 +48,9 @@
+ 
+ #include "vice.h"
+ 
++#include <stdlib.h>
++#include <string.h>
++
+ #include <stdio.h>
+ #include "vice_sdl.h"
+ 
+@@ -796,6 +799,233 @@
+     return canvas;
+ }
+ 
++/* K4510 (K4510-Personalities) ------------------------------------------------------ */
++static int k4510_left = -1, k4510_whole = 0, k4510_borders = 1;
++
++static void k4510_env(void)
++{
++    if (k4510_left < 0) {
++        const char *e = getenv("K4510_PLACEMENT");
++        k4510_left = e && !strcmp(e, "left");
++        e = getenv("K4510_SCALE");
++        k4510_whole = e && !strcmp(e, "integer");
++        e = getenv("K4510_VDC_BORDERS");
++        k4510_borders = !(e && !strcmp(e, "off"));
++    }
++}
++
++/* x128 only (vdc.c): the area the VDC displayed last frame, raster coords. */
++extern int k4510_vdc_area(struct video_canvas_s *canvas, unsigned int *x0, unsigned int *y0,
++                          unsigned int *x1, unsigned int *y1) __attribute__((weak));
++
++/* The VDC's text area with a margin of 8 pixels, without its wide borders,
++ * in the canvas's pixels; 0 when the canvas is not the VDC's. */
++static int k4510_vdc_crop(struct video_canvas_s *o, SDL_Rect *s)
++{
++    unsigned int x0, y0, x1, y1, m = 8;
++    int sx = o->videoconfig->scalex, sy = o->videoconfig->scaley;
++    if (!k4510_vdc_area || !k4510_vdc_area(o, &x0, &y0, &x1, &y1)) {
++        return 0;
++    }
++    x0 = x0 > o->viewport->first_x + m ? x0 - m - o->viewport->first_x : 0;
++    y0 = y0 > o->viewport->first_line + m ? y0 - m - o->viewport->first_line : 0;
++    x1 = x1 + m - o->viewport->first_x;
++    y1 = y1 + m - o->viewport->first_line;
++    s->x = (int)x0 * sx;
++    s->y = (int)y0 * sy;
++    s->w = MIN((int)x1 * sx, (int)o->width) - s->x;
++    s->h = MIN((int)y1 * sy, (int)o->height) - s->y;
++    return s->w >= 64 && s->h >= 64;
++}
++
++/* F12 -> Video settings -> VDC borders (menu_video.c): with them off, the VDC
++ * as the main display shows its text area only, scaled up.  The choice is
++ * kept in display.cfg (K4510_DISPLAY_CFG) as vdcborders=on|off. */
++int k4510_vdc_borders(int toggle);
++int k4510_vdc_borders(int toggle)
++{
++    const char *p = getenv("K4510_DISPLAY_CFG");
++    char buf[4096], tmp[4096 + 16], line[256];
++    size_t n = 0;
++    FILE *f;
++    k4510_env();
++    if (!toggle) {
++        return k4510_borders;
++    }
++    k4510_borders = !k4510_borders;
++    if (!p) {
++        return k4510_borders;
++    }
++    buf[0] = 0;
++    if ((f = fopen(p, "r"))) {
++        while (fgets(line, sizeof line, f)) {
++            if (strncmp(line, "vdcborders=", 11) && n + strlen(line) < sizeof buf - 32) {
++                strcpy(buf + n, line);
++                n += strlen(line);
++            }
++        }
++        fclose(f);
++    }
++    snprintf(tmp, sizeof tmp, "%s.tmp", p);
++    if ((f = fopen(tmp, "w"))) {
++        fprintf(f, "%svdcborders=%s\n", buf, k4510_borders ? "on" : "off");
++        if (fclose(f) == 0) {
++            rename(tmp, p);
++        }
++    }
++    return k4510_borders;
++}
++
++/* The picture's rect in output pixels when placed left and/or scaled by whole
++ * multiples, and the part of the canvas shown (all of it, or the VDC without
++ * its borders); 0 = VICE's own centring.  The logical size is switched off
++ * for the frame and given back after it. */
++static int k4510_place(struct video_canvas_s *canvas, SDL_Renderer *r, SDL_Rect *d, SDL_Rect *src, int *lw, int *lh)
++{
++    int W, H, w, h, crop;
++    double cw, ch;
++    k4510_env();
++    crop = !k4510_borders && !sdl_menu_state && k4510_vdc_crop(canvas, src);   /* the F12 menu is laid out on the whole canvas */
++    if (!k4510_left && !k4510_whole && !crop) {
++        return 0;
++    }
++    SDL_RenderGetLogicalSize(r, lw, lh);
++    if (*lw <= 0 || *lh <= 0) {
++        return 0;
++    }
++    if (!crop) {
++        src->x = src->y = 0;
++        src->w = canvas->width;
++        src->h = canvas->height;
++    }
++    cw = (double)*lw * src->w / canvas->width;
++    ch = (double)*lh * src->h / canvas->height;
++    SDL_RenderSetLogicalSize(r, 0, 0);
++    SDL_GetRendererOutputSize(r, &W, &H);
++    h = H;
++    if (k4510_whole && H >= (int)ch && (int)ch > 0) {
++        h = H / (int)ch * (int)ch;
++    }
++    w = (int)(h * cw / ch);
++    if (w > W) {
++        w = W;
++        h = (int)(w * ch / cw);
++    }
++    d->x = k4510_left ? 0 : (W - w) / 2;
++    d->y = (H - h) / 2;
++    d->w = w;
++    d->h = h;
++    return 1;
++}
++
++#include "k4510host.c"
++#include "k4510host_sdl2.c"
++
++static SDL_Texture *k4510_side_tex[2];
++static SDL_Renderer *k4510_side_ren[2];
++static int k4510_side_w[2], k4510_side_h[2];
++
++/* The C128 with placement=left shows both chips: the active one's picture on
++ * the left, the other live in the free area; VICE's own switch swaps them. */
++static int k4510_dual(struct video_canvas_s *canvas)
++{
++    const char *e = getenv("K4510_C128_DUAL");
++    k4510_env();
++    return k4510_left && machine_class == VICE_MACHINE_C128 && sdl_num_screens == 2
++        && !(e && !strcmp(e, "0"))
++        && canvas->container == sdl_canvaslist[canvas->index ^ 1]->container;
++}
++
++/* The inactive canvas: render its frame and keep it in its own texture. */
++static void k4510_side_refresh(struct video_canvas_s *canvas, unsigned int xs, unsigned int ys,
++                               unsigned int xi, unsigned int yi, unsigned int w, unsigned int h)
++{
++    int i = canvas->index & 1;
++    SDL_Renderer *r;
++    if (!canvas->screen || !canvas->container || !(r = canvas->container->renderer)) {
++        return;
++    }
++    xi *= canvas->videoconfig->scalex;
++    w *= canvas->videoconfig->scalex;
++    yi *= canvas->videoconfig->scaley;
++    h *= canvas->videoconfig->scaley;
++    w = MIN(w, canvas->width);
++    h = MIN(h, canvas->height);
++    if ((xi + w > canvas->width) || (yi + h > canvas->height)) {
++        return;
++    }
++    video_canvas_render(canvas, (uint8_t *)canvas->screen->pixels, w, h, xs, ys, xi, yi, canvas->screen->pitch);
++    if (!k4510_side_tex[i] || k4510_side_ren[i] != r
++        || k4510_side_w[i] != canvas->screen->w || k4510_side_h[i] != canvas->screen->h) {
++        if (k4510_side_tex[i] && k4510_side_ren[i] == r) {
++            SDL_DestroyTexture(k4510_side_tex[i]);
++        }
++        k4510_side_tex[i] = SDL_CreateTexture(r, canvas->screen->format->format, SDL_TEXTUREACCESS_STREAMING,
++                                              canvas->screen->w, canvas->screen->h);
++        k4510_side_ren[i] = r;
++        k4510_side_w[i] = canvas->screen->w;
++        k4510_side_h[i] = canvas->screen->h;
++        if (!k4510_side_tex[i]) {
++            return;
++        }
++        SDL_SetTextureBlendMode(k4510_side_tex[i], SDL_BLENDMODE_NONE);
++    }
++    SDL_UpdateTexture(k4510_side_tex[i], NULL, canvas->screen->pixels, canvas->screen->pitch);
++}
++
++/* The part of the other canvas's texture to show: all of it, or for the VDC
++ * its text area (K4510_VDC_CROP=0: all of it too). */
++static void k4510_side_crop(struct video_canvas_s *o, SDL_Rect *s)
++{
++    const char *e = getenv("K4510_VDC_CROP");
++    if ((e && !strcmp(e, "0")) || !k4510_vdc_crop(o, s)) {
++        s->x = s->y = 0;
++        s->w = o->width;
++        s->h = o->height;
++    }
++}
++
++/* Fill the free area beside the active canvas's picture. */
++static void k4510_sidebar(struct video_canvas_s *canvas, SDL_Renderer *r, SDL_Rect *pic)
++{
++    int W, H;
++    SDL_Rect area;
++    SDL_GetRendererOutputSize(r, &W, &H);
++    area.x = pic->x + pic->w;
++    area.y = 0;
++    area.w = W - area.x;
++    area.h = H;
++    if (area.w < 16) {
++        return;
++    }
++    if (k4510_dual(canvas)) {
++        struct video_canvas_s *o = sdl_canvaslist[canvas->index ^ 1];
++        int i = o->index & 1;
++        if (k4510_side_tex[i] && k4510_side_ren[i] == r && o->height > 0 && o->width > 0) {
++            double par = o->videoconfig->aspect_mode == VIDEO_ASPECT_MODE_NONE ? 1.0
++                       : o->videoconfig->aspect_mode == VIDEO_ASPECT_MODE_CUSTOM ? o->videoconfig->aspect_ratio
++                       : o->geometry->pixel_aspect_ratio;
++            SDL_Rect d, s;
++            double aw, ah;
++            k4510_side_crop(o, &s);
++            aw = s.w * par;
++            ah = s.h;
++            d.w = area.w;
++            d.h = (int)(area.w * ah / aw);
++            if (d.h > H) {
++                d.h = H;
++                d.w = (int)(H * aw / ah);
++            }
++            d.x = area.x + (area.w - d.w) / 2;
++            d.y = (H - d.h) / 2;
++            SDL_RenderCopy(r, k4510_side_tex[i], &s, &d);
++        }
++        return;
++    }
++    k4510host_sdl2(r, area);
++}
++/* ------------------------------------------------------------------------- */
++
+ void video_canvas_refresh(struct video_canvas_s *canvas,
+                           unsigned int xs, unsigned int ys,
+                           unsigned int xi, unsigned int yi,
+@@ -805,6 +1035,8 @@
+     uint8_t *backup;
+     SDL_RendererFlip flip = 0;
+     double angle = 0;
++    SDL_Rect k4510_rect, k4510_src;
++    int k4510 = 0, k4510_lw = 0, k4510_lh = 0;
+ 
+     /* If the canvas isn't initialized, skip this */
+     if ((canvas == NULL) || (canvas->screen == NULL)) {
+@@ -812,6 +1044,9 @@
+     }
+ 
+     if (sdl_canvas_is_visible(canvas) == 0) {
++        if (k4510_dual(canvas)) {
++            k4510_side_refresh(canvas, xs, ys, xi, yi, w, h);
++        }
+         return;
+     }
+ 
+@@ -872,6 +1107,7 @@
+     SDL_UpdateTexture(canvas->texture, NULL, canvas->screen->pixels, canvas->screen->pitch);
+ 
+     /* Render. */
++    k4510 = canvas->videoconfig->rotate ? 0 : k4510_place(canvas, canvas->container->renderer, &k4510_rect, &k4510_src, &k4510_lw, &k4510_lh);
+     SDL_RenderClear(canvas->container->renderer);
+ 
+     if (canvas->videoconfig->flipx) {
+@@ -890,7 +1126,7 @@
+          * render of the menu shows the emu screen behind it!
+          */
+         SDL_SetTextureBlendMode(canvas->previous_frame_texture, SDL_BLENDMODE_NONE);
+-        SDL_RenderCopyEx(canvas->container->renderer, canvas->previous_frame_texture, NULL, NULL, angle, NULL, flip);
++        SDL_RenderCopyEx(canvas->container->renderer, canvas->previous_frame_texture, k4510 ? &k4510_src : NULL, k4510 ? &k4510_rect : NULL, angle, NULL, flip);
+         SDL_SetTextureBlendMode(canvas->texture, SDL_BLENDMODE_BLEND);
+     } else {
+         SDL_SetTextureBlendMode(canvas->texture, SDL_BLENDMODE_NONE);
+@@ -921,10 +1157,16 @@
+         DBG(("video_canvas_refresh angle:%f scale:%f", angle, scale));
+         SDL_RenderCopyEx(canvas->container->renderer, canvas->texture, NULL, &rect, angle, NULL, flip);
+     } else {
+-        SDL_RenderCopyEx(canvas->container->renderer, canvas->texture, NULL, NULL, angle, NULL, flip);
++        SDL_RenderCopyEx(canvas->container->renderer, canvas->texture, k4510 ? &k4510_src : NULL, k4510 ? &k4510_rect : NULL, angle, NULL, flip);
+     }
+ 
++    if (k4510 && k4510_left) {
++        k4510_sidebar(canvas, canvas->container->renderer, &k4510_rect);
++    }
+     SDL_RenderPresent(canvas->container->renderer);
++    if (k4510) {
++        SDL_RenderSetLogicalSize(canvas->container->renderer, k4510_lw, k4510_lh);
++    }
+ 
+     /* Swap the textures references so we can easily re-render this frame under the next frame. */
+     texture_swap = canvas->previous_frame_texture;
+diff -ruN a/src/log.c b/src/log.c
+--- a/src/log.c
++++ b/src/log.c
+@@ -743,7 +743,7 @@
+         return -1;
+     }
+ 
+-    if ((log_to_file) || (!log_colorize)) {
++    if (1) {
+         nocolorpre = logskipcolors(pretxt);
+         nocolortxt = logskipcolors(logtxt);
+     }
+diff -ruN a/src/vdc/vdc.c b/src/vdc/vdc.c
+--- a/src/vdc/vdc.c
++++ b/src/vdc/vdc.c
+@@ -60,6 +60,25 @@
+ 
+ vdc_t vdc;
+ 
++/* K4510 (K4510-Personalities): the raster lines the VDC displayed in the last frame,
++ * for x128's sidebar to crop the borders off (src/arch/sdl/video_sdl2.c). */
++static unsigned int k4510_y0 = ~0u, k4510_y1, k4510_top, k4510_bottom;
++
++int k4510_vdc_area(struct video_canvas_s *canvas, unsigned int *x0, unsigned int *y0,
++                   unsigned int *x1, unsigned int *y1);
++int k4510_vdc_area(struct video_canvas_s *canvas, unsigned int *x0, unsigned int *y0,
++                   unsigned int *x1, unsigned int *y1)
++{
++    if (canvas != vdc.raster.canvas || k4510_bottom <= k4510_top) {
++        return 0;
++    }
++    *x0 = vdc.border_width;
++    *x1 = vdc.border_width + vdc.charwidth * vdc.screen_text_cols;
++    *y0 = k4510_top;
++    *y1 = k4510_bottom + 1;
++    return 1;
++}
++
+ static void vdc_raster_draw_alarm_handler(CLOCK offset, void *data);
+ 
+ /* return pixel aspect ratio for current video mode
+@@ -480,6 +499,11 @@
+     static unsigned int vdc_vert_fine_adj = 0;
+     static unsigned int stable_size_count = 0;
+ 
++    if (vdc.display_enable) {
++        k4510_y0 = MIN(k4510_y0, vdc.raster.current_line);
++        k4510_y1 = MAX(k4510_y1, vdc.raster.current_line);
++    }
++
+     /*  Video signal handling section ----------------------------------------------------------------------------------------------------------*/
+     if (vdc_row_counter_latch) {    /* latch is set if the previous raster line was the last of its character row */
+         /* We've just drawn the last raster line of the current character row,
+@@ -561,6 +585,12 @@
+ 
+         /* check if we've hit the vsync position and should start vsync */
+         if (vdc.row_counter == vdc.regs[7]) {
++            if (k4510_y0 <= k4510_y1) {
++                k4510_top = k4510_y0;
++                k4510_bottom = k4510_y1;
++            }
++            k4510_y0 = ~0u;
++            k4510_y1 = 0;
+             vdc.vsync = 1;
+             vdc.vsync_counter = 0;
+ /*

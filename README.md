@@ -64,6 +64,7 @@ VIC-20 and Plus/4 are sidelined (Doc, 2026-10-08).
     tools/curate-c64.sh; tools/get-robots.sh   # software for ~/personalities
     tools/make-images.sh             # -> work/out/{personalities,home}
     tools/test-personality.sh c64    # -> work/shots/c64.jpg (Xvfb on the base stand-in)
+    tools/export-patches.sh          # -> patches/*.patch: the same changes as plain diffs (patches/README.md)
     tools/deploy-dell.sh             # images to p4, starting files to ~/personalities
 
 Libraries the K4510x base lacks are found by asking `k4510-base-mimic` and
