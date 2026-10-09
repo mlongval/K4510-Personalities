@@ -1,9 +1,11 @@
 # K4510 Personalities
 
 Other machines for the K4510x, picked at power-on like a MiSTer/MEGA65 core:
-hold **right Shift** on the Dell, GRUB lists `K4510 > Commodore 64`, `... 128`,
-`... PET`, `Amiga 500`, `Amiga 1200`. The same K4510 Linux boots, runs that
-machine first (from RAM), and quitting it (F12 -> Quit) brings up the K4510.
+hold **SPACE** at power-on and, just before the K4510 starts, a menu lists
+K4510, Commodore 64, 128, PET, Amiga 500, Amiga 1200. The chosen machine
+runs from RAM, and quitting it (F12 -> Quit) brings up the K4510. No space:
+the K4510, one second later. (A GRUB-entry version came first, but was dropped
+the same day: Doc wants Debian to show the choice.)
 (Started 2026-10-08 as "could BMC64 run in a container?" — BMC64 itself is
 Pi bare-metal glue around VICE 3.3; upstream VICE's SDL UI is the better fit.)
 
@@ -33,11 +35,11 @@ Two upstream bugs patched at build time: VICE 3.10 crashes at the banner when
 stdout is not a terminal (`src/log.c`); Amiberry 8.3.0's non-OpenGL renderer
 does not compile (`sdl_renderer.cpp`, a misnamed SDL3 type).
 
-## The K4510 side (K4510 repo, branch `personalities`)
+## The K4510 side (K4510 repo, merged 745d8e8; spacebar menu on branch `personalities-space`)
 
 - `linux/config/includes.chroot/usr/local/bin/k4510-personality` — copy the image to /run, mount, run
-- `etc/profile.d/k4510.sh` — reads `k4510.personality=` from /proc/cmdline, once a boot
-- `linux/k4510-grub-personalities` — writes `/etc/grub.d/43_k4510_personalities` (run on Fedora, then grub2-mkconfig)
+- `linux/config/includes.chroot/usr/local/bin/k4510-boot-menu` — 1 s wait for a held space, then the menu
+- `etc/profile.d/k4510.sh` — runs k4510-boot-menu on tty1 (or `k4510.personality=` from /proc/cmdline, once a boot)
 - `docs/STORAGE.md` §3b
 
 ## Where things live on the machine
