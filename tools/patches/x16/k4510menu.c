@@ -37,12 +37,26 @@ static void
 save_settings(void)
 {
 	const char *p = getenv("K4510_X16_SETTINGS");
-	FILE *f = p ? fopen(p, "w") : NULL;
-	if (!f) return;
-	char name[32];
+	if (!p) return;
+	// keep the lines that are not ours (vdcborders=, written by the C128)
+	char keep[2048] = "", line[256], tmp[512];
+	size_t n = 0;
+	FILE *f = fopen(p, "r");
+	if (f) {
+		while (fgets(line, sizeof line, f)) {
+			if (!strncmp(line, "placement=", 10) || !strncmp(line, "scale=", 6) || !strncmp(line, "sidebar=", 8)) continue;
+			if (n + strlen(line) >= sizeof keep) break;
+			strcpy(keep + n, line);
+			n += strlen(line);
+		}
+		fclose(f);
+	}
+	snprintf(tmp, sizeof tmp, "%s.tmp", p);
+	if (!(f = fopen(tmp, "w"))) return;
+	char name[32] = "none";
 	sscanf(k4510host_scene(), "%31s", name);
-	fprintf(f, "placement=%s\nscale=%s\nsidebar=%s\n", place_left ? "left" : "centre", scale_int ? "integer" : "fit", name);
-	fclose(f);
+	fprintf(f, "placement=%s\nscale=%s\nsidebar=%s\n%s", place_left ? "left" : "centre", scale_int ? "integer" : "fit", name, keep);
+	if (fclose(f) == 0) rename(tmp, p);
 }
 
 void

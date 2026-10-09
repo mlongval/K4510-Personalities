@@ -7,13 +7,15 @@ V=/opt/personalities/vice
 name=$(basename "$0")
 # The placement every personality shares: ~/personalities/display.cfg,
 # placement=left|centre, scale=fit|integer, sidebar=NAME (the X16's F12
-# menu writes it).
+# menu writes it), vdcborders=on|off (the C128's).
 C=$HOME/personalities/display.cfg
 if [ -f "$C" ]; then
     v=$(sed -n 's/^placement=//p' "$C"); [ -n "$v" ] && export K4510_PLACEMENT=${K4510_PLACEMENT:-$v}
     v=$(sed -n 's/^scale=//p' "$C"); [ -n "$v" ] && export K4510_SCALE=${K4510_SCALE:-$v}
     v=$(sed -n 's/^sidebar=//p' "$C"); [ -n "$v" ] && [ -z "$K4510_SIDEBAR" ] && export K4510_SIDEBAR="$v state=$HOME/personalities/sidebar"
+    v=$(sed -n 's/^vdcborders=//p' "$C"); [ -n "$v" ] && export K4510_VDC_BORDERS=${K4510_VDC_BORDERS:-$v}
 fi
+export K4510_DISPLAY_CFG=$C   # the C128's F12 -> Video settings -> VDC borders writes vdcborders= here
 # The K4510's sidebar scenes (its layer builds the library); sidebar=NAME in
 # display.cfg picks one: antfarm matrix space river dreamfall tetris
 # halloween christmas, or none.

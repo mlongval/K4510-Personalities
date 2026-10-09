@@ -7,7 +7,8 @@
 #                         its other display, live (K4510_C128_DUAL=0: off),
 #                         the VDC's borders cropped off (K4510_VDC_CROP=0: kept)
 # and in src/vdc/vdc.c the area the VDC displayed, for that crop; in
-# src/arch/sdl/menu_video.c the 40/80 key in the C128's Video menu.
+# src/arch/sdl/menu_video.c the 40/80 key and VDC borders on/off (saved as
+# vdcborders= in K4510_DISPLAY_CFG) in the C128's Video menu.
 # Unset: VICE as it was.
 import os, shutil, sys
 here = os.path.dirname(os.path.abspath(__file__))
@@ -23,7 +24,7 @@ def edit(old, new, count=1):
 
 HELPER = r'''
 /* K4510 (BMC64Port) ------------------------------------------------------ */
-static int k4510_left = -1, k4510_whole = 0;
+static int k4510_left = -1, k4510_whole = 0, k4510_borders = 1;
 
 static void k4510_env(void)
 {
@@ -32,33 +33,107 @@ static void k4510_env(void)
         k4510_left = e && !strcmp(e, "left");
         e = getenv("K4510_SCALE");
         k4510_whole = e && !strcmp(e, "integer");
+        e = getenv("K4510_VDC_BORDERS");
+        k4510_borders = !(e && !strcmp(e, "off"));
     }
 }
 
-/* The picture's rect in output pixels when placed left and/or scaled by whole
- * multiples; 0 = VICE's own centring.  The logical size is switched off for
- * the frame and given back after it. */
-static int k4510_place(SDL_Renderer *r, SDL_Rect *d, int *lw, int *lh)
+/* x128 only (vdc.c): the area the VDC displayed last frame, raster coords. */
+extern int k4510_vdc_area(struct video_canvas_s *canvas, unsigned int *x0, unsigned int *y0,
+                          unsigned int *x1, unsigned int *y1) __attribute__((weak));
+
+/* The VDC's text area with a margin of 8 pixels, without its wide borders,
+ * in the canvas's pixels; 0 when the canvas is not the VDC's. */
+static int k4510_vdc_crop(struct video_canvas_s *o, SDL_Rect *s)
 {
-    int W, H, w, h;
+    unsigned int x0, y0, x1, y1, m = 8;
+    int sx = o->videoconfig->scalex, sy = o->videoconfig->scaley;
+    if (!k4510_vdc_area || !k4510_vdc_area(o, &x0, &y0, &x1, &y1)) {
+        return 0;
+    }
+    x0 = x0 > o->viewport->first_x + m ? x0 - m - o->viewport->first_x : 0;
+    y0 = y0 > o->viewport->first_line + m ? y0 - m - o->viewport->first_line : 0;
+    x1 = x1 + m - o->viewport->first_x;
+    y1 = y1 + m - o->viewport->first_line;
+    s->x = (int)x0 * sx;
+    s->y = (int)y0 * sy;
+    s->w = MIN((int)x1 * sx, (int)o->width) - s->x;
+    s->h = MIN((int)y1 * sy, (int)o->height) - s->y;
+    return s->w >= 64 && s->h >= 64;
+}
+
+/* F12 -> Video settings -> VDC borders (menu_video.c): with them off, the VDC
+ * as the main display shows its text area only, scaled up.  The choice is
+ * kept in display.cfg (K4510_DISPLAY_CFG) as vdcborders=on|off. */
+int k4510_vdc_borders(int toggle);
+int k4510_vdc_borders(int toggle)
+{
+    const char *p = getenv("K4510_DISPLAY_CFG");
+    char buf[4096], tmp[4096 + 16], line[256];
+    size_t n = 0;
+    FILE *f;
     k4510_env();
-    if (!k4510_left && !k4510_whole) {
+    if (!toggle) {
+        return k4510_borders;
+    }
+    k4510_borders = !k4510_borders;
+    if (!p) {
+        return k4510_borders;
+    }
+    buf[0] = 0;
+    if ((f = fopen(p, "r"))) {
+        while (fgets(line, sizeof line, f)) {
+            if (strncmp(line, "vdcborders=", 11) && n + strlen(line) < sizeof buf - 32) {
+                strcpy(buf + n, line);
+                n += strlen(line);
+            }
+        }
+        fclose(f);
+    }
+    snprintf(tmp, sizeof tmp, "%s.tmp", p);
+    if ((f = fopen(tmp, "w"))) {
+        fprintf(f, "%svdcborders=%s\n", buf, k4510_borders ? "on" : "off");
+        if (fclose(f) == 0) {
+            rename(tmp, p);
+        }
+    }
+    return k4510_borders;
+}
+
+/* The picture's rect in output pixels when placed left and/or scaled by whole
+ * multiples, and the part of the canvas shown (all of it, or the VDC without
+ * its borders); 0 = VICE's own centring.  The logical size is switched off
+ * for the frame and given back after it. */
+static int k4510_place(struct video_canvas_s *canvas, SDL_Renderer *r, SDL_Rect *d, SDL_Rect *src, int *lw, int *lh)
+{
+    int W, H, w, h, crop;
+    double cw, ch;
+    k4510_env();
+    crop = !k4510_borders && k4510_vdc_crop(canvas, src);
+    if (!k4510_left && !k4510_whole && !crop) {
         return 0;
     }
     SDL_RenderGetLogicalSize(r, lw, lh);
     if (*lw <= 0 || *lh <= 0) {
         return 0;
     }
+    if (!crop) {
+        src->x = src->y = 0;
+        src->w = canvas->width;
+        src->h = canvas->height;
+    }
+    cw = (double)*lw * src->w / canvas->width;
+    ch = (double)*lh * src->h / canvas->height;
     SDL_RenderSetLogicalSize(r, 0, 0);
     SDL_GetRendererOutputSize(r, &W, &H);
     h = H;
-    if (k4510_whole && H >= *lh) {
-        h = H / *lh * *lh;
+    if (k4510_whole && H >= (int)ch && (int)ch > 0) {
+        h = H / (int)ch * (int)ch;
     }
-    w = (int)((double)h * *lw / *lh);
+    w = (int)(h * cw / ch);
     if (w > W) {
         w = W;
-        h = (int)((double)w * *lh / *lw);
+        h = (int)(w * ch / cw);
     }
     d->x = k4510_left ? 0 : (W - w) / 2;
     d->y = (H - h) / 2;
@@ -122,32 +197,12 @@ static void k4510_side_refresh(struct video_canvas_s *canvas, unsigned int xs, u
     SDL_UpdateTexture(k4510_side_tex[i], NULL, canvas->screen->pixels, canvas->screen->pitch);
 }
 
-/* x128 only (vdc.c): the area the VDC displayed last frame, raster coords. */
-extern int k4510_vdc_area(struct video_canvas_s *canvas, unsigned int *x0, unsigned int *y0,
-                          unsigned int *x1, unsigned int *y1) __attribute__((weak));
-
 /* The part of the other canvas's texture to show: all of it, or for the VDC
- * its text area with a margin of 8 pixels, without the wide borders. */
+ * its text area (K4510_VDC_CROP=0: all of it too). */
 static void k4510_side_crop(struct video_canvas_s *o, SDL_Rect *s)
 {
     const char *e = getenv("K4510_VDC_CROP");
-    unsigned int x0, y0, x1, y1, m = 8;
-    int sx = o->videoconfig->scalex, sy = o->videoconfig->scaley;
-    s->x = s->y = 0;
-    s->w = o->width;
-    s->h = o->height;
-    if ((e && !strcmp(e, "0")) || !k4510_vdc_area || !k4510_vdc_area(o, &x0, &y0, &x1, &y1)) {
-        return;
-    }
-    x0 = x0 > o->viewport->first_x + m ? x0 - m - o->viewport->first_x : 0;
-    y0 = y0 > o->viewport->first_line + m ? y0 - m - o->viewport->first_line : 0;
-    x1 = x1 + m - o->viewport->first_x;
-    y1 = y1 + m - o->viewport->first_line;
-    s->x = (int)x0 * sx;
-    s->y = (int)y0 * sy;
-    s->w = MIN((int)x1 * sx, (int)o->width) - s->x;
-    s->h = MIN((int)y1 * sy, (int)o->height) - s->y;
-    if (s->w < 64 || s->h < 64) {
+    if ((e && !strcmp(e, "0")) || !k4510_vdc_crop(o, s)) {
         s->x = s->y = 0;
         s->w = o->width;
         s->h = o->height;
@@ -197,7 +252,7 @@ static void k4510_sidebar(struct video_canvas_s *canvas, SDL_Renderer *r, SDL_Re
 
 void video_canvas_refresh('''
 edit("\nvoid video_canvas_refresh(", HELPER)
-edit("    double angle = 0;\n", "    double angle = 0;\n    SDL_Rect k4510_rect;\n    int k4510 = 0, k4510_lw = 0, k4510_lh = 0;\n")
+edit("    double angle = 0;\n", "    double angle = 0;\n    SDL_Rect k4510_rect, k4510_src;\n    int k4510 = 0, k4510_lw = 0, k4510_lh = 0;\n")
 edit("    if (sdl_canvas_is_visible(canvas) == 0) {\n        return;\n    }\n",
      "    if (sdl_canvas_is_visible(canvas) == 0) {\n"
      "        if (k4510_dual(canvas)) {\n"
@@ -206,12 +261,12 @@ edit("    if (sdl_canvas_is_visible(canvas) == 0) {\n        return;\n    }\n",
      "        return;\n    }\n")
 edit("    /* Render. */\n    SDL_RenderClear(canvas->container->renderer);\n",
      "    /* Render. */\n"
-     "    k4510 = canvas->videoconfig->rotate ? 0 : k4510_place(canvas->container->renderer, &k4510_rect, &k4510_lw, &k4510_lh);\n"
+     "    k4510 = canvas->videoconfig->rotate ? 0 : k4510_place(canvas, canvas->container->renderer, &k4510_rect, &k4510_src, &k4510_lw, &k4510_lh);\n"
      "    SDL_RenderClear(canvas->container->renderer);\n")
 edit("SDL_RenderCopyEx(canvas->container->renderer, canvas->previous_frame_texture, NULL, NULL, angle, NULL, flip);",
-     "SDL_RenderCopyEx(canvas->container->renderer, canvas->previous_frame_texture, NULL, k4510 ? &k4510_rect : NULL, angle, NULL, flip);")
+     "SDL_RenderCopyEx(canvas->container->renderer, canvas->previous_frame_texture, k4510 ? &k4510_src : NULL, k4510 ? &k4510_rect : NULL, angle, NULL, flip);")
 edit("        SDL_RenderCopyEx(canvas->container->renderer, canvas->texture, NULL, NULL, angle, NULL, flip);\n    }\n\n    SDL_RenderPresent(canvas->container->renderer);\n",
-     "        SDL_RenderCopyEx(canvas->container->renderer, canvas->texture, NULL, k4510 ? &k4510_rect : NULL, angle, NULL, flip);\n    }\n\n"
+     "        SDL_RenderCopyEx(canvas->container->renderer, canvas->texture, k4510 ? &k4510_src : NULL, k4510 ? &k4510_rect : NULL, angle, NULL, flip);\n    }\n\n"
      "    if (k4510 && k4510_left) {\n        k4510_sidebar(canvas, canvas->container->renderer, &k4510_rect);\n    }\n"
      "    SDL_RenderPresent(canvas->container->renderer);\n"
      "    if (k4510) {\n        SDL_RenderSetLogicalSize(canvas->container->renderer, k4510_lw, k4510_lh);\n    }\n")
@@ -275,6 +330,18 @@ static UI_MENU_CALLBACK(k4510_column_key_callback)
     return up ? "up (40 cols at reset)" : "down (80 cols at reset)";
 }
 
+/* K4510: the VDC's borders as the main display (video_sdl2.c keeps it). */
+extern int k4510_vdc_borders(int toggle);
+
+static UI_MENU_CALLBACK(k4510_vdc_borders_callback)
+{
+    if (activated) {
+        k4510_vdc_borders(1);
+        return NULL;
+    }
+    return k4510_vdc_borders(0) ? "on" : "off";
+}
+
 const ui_menu_entry_t c128_video_menu[] = {
 ''')
 edit("        .data     = (ui_callback_data_t)VIDEO_OUTPUT_DUAL_WINDOW\n    },\n#endif\n    SDL_MENU_ITEM_SEPARATOR,\n",
@@ -282,6 +349,10 @@ edit("        .data     = (ui_callback_data_t)VIDEO_OUTPUT_DUAL_WINDOW\n    },\n
      "    {   .string   = \"40/80 key\",\n"
      "        .type     = MENU_ENTRY_OTHER,\n"
      "        .callback = k4510_column_key_callback\n"
+     "    },\n"
+     "    {   .string   = \"VDC borders\",\n"
+     "        .type     = MENU_ENTRY_OTHER,\n"
+     "        .callback = k4510_vdc_borders_callback\n"
      "    },\n"
      "    SDL_MENU_ITEM_SEPARATOR,\n")
 open(P, "w").write(s)
