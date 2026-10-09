@@ -4,7 +4,10 @@
 #                         the screen free; K4510_SCALE=integer: whole multiples
 #   the sidebar           in that free area: the K4510's scene
 #                         (libk4510side.so via k4510host.c), or on the C128
-#                         its other display, live (K4510_C128_DUAL=0: off)
+#                         its other display, live (K4510_C128_DUAL=0: off),
+#                         the VDC's borders cropped off (K4510_VDC_CROP=0: kept)
+# and in src/vdc/vdc.c the area the VDC displayed, for that crop; in
+# src/arch/sdl/menu_video.c the 40/80 key in the C128's Video menu.
 # Unset: VICE as it was.
 import os, shutil, sys
 here = os.path.dirname(os.path.abspath(__file__))
@@ -119,6 +122,38 @@ static void k4510_side_refresh(struct video_canvas_s *canvas, unsigned int xs, u
     SDL_UpdateTexture(k4510_side_tex[i], NULL, canvas->screen->pixels, canvas->screen->pitch);
 }
 
+/* x128 only (vdc.c): the area the VDC displayed last frame, raster coords. */
+extern int k4510_vdc_area(struct video_canvas_s *canvas, unsigned int *x0, unsigned int *y0,
+                          unsigned int *x1, unsigned int *y1) __attribute__((weak));
+
+/* The part of the other canvas's texture to show: all of it, or for the VDC
+ * its text area with a margin of 8 pixels, without the wide borders. */
+static void k4510_side_crop(struct video_canvas_s *o, SDL_Rect *s)
+{
+    const char *e = getenv("K4510_VDC_CROP");
+    unsigned int x0, y0, x1, y1, m = 8;
+    int sx = o->videoconfig->scalex, sy = o->videoconfig->scaley;
+    s->x = s->y = 0;
+    s->w = o->width;
+    s->h = o->height;
+    if ((e && !strcmp(e, "0")) || !k4510_vdc_area || !k4510_vdc_area(o, &x0, &y0, &x1, &y1)) {
+        return;
+    }
+    x0 = x0 > o->viewport->first_x + m ? x0 - m - o->viewport->first_x : 0;
+    y0 = y0 > o->viewport->first_line + m ? y0 - m - o->viewport->first_line : 0;
+    x1 = x1 + m - o->viewport->first_x;
+    y1 = y1 + m - o->viewport->first_line;
+    s->x = (int)x0 * sx;
+    s->y = (int)y0 * sy;
+    s->w = MIN((int)x1 * sx, (int)o->width) - s->x;
+    s->h = MIN((int)y1 * sy, (int)o->height) - s->y;
+    if (s->w < 64 || s->h < 64) {
+        s->x = s->y = 0;
+        s->w = o->width;
+        s->h = o->height;
+    }
+}
+
 /* Fill the free area beside the active canvas's picture. */
 static void k4510_sidebar(struct video_canvas_s *canvas, SDL_Renderer *r, SDL_Rect *pic)
 {
@@ -139,8 +174,11 @@ static void k4510_sidebar(struct video_canvas_s *canvas, SDL_Renderer *r, SDL_Re
             double par = o->videoconfig->aspect_mode == VIDEO_ASPECT_MODE_NONE ? 1.0
                        : o->videoconfig->aspect_mode == VIDEO_ASPECT_MODE_CUSTOM ? o->videoconfig->aspect_ratio
                        : o->geometry->pixel_aspect_ratio;
-            double aw = o->width * par, ah = o->height;
-            SDL_Rect d;
+            SDL_Rect d, s;
+            double aw, ah;
+            k4510_side_crop(o, &s);
+            aw = s.w * par;
+            ah = s.h;
             d.w = area.w;
             d.h = (int)(area.w * ah / aw);
             if (d.h > H) {
@@ -149,7 +187,7 @@ static void k4510_sidebar(struct video_canvas_s *canvas, SDL_Renderer *r, SDL_Re
             }
             d.x = area.x + (area.w - d.w) / 2;
             d.y = (H - d.h) / 2;
-            SDL_RenderCopy(r, k4510_side_tex[i], NULL, &d);
+            SDL_RenderCopy(r, k4510_side_tex[i], &s, &d);
         }
         return;
     }
@@ -179,4 +217,72 @@ edit("        SDL_RenderCopyEx(canvas->container->renderer, canvas->texture, NUL
      "    if (k4510) {\n        SDL_RenderSetLogicalSize(canvas->container->renderer, k4510_lw, k4510_lh);\n    }\n")
 edit('#include "vice.h"\n', '#include "vice.h"\n\n#include <stdlib.h>\n#include <string.h>\n')
 open(P, "w").write(s)
-print("vice/apply.py: placement, sidebar, C128 dual display in")
+
+P = "src/vdc/vdc.c"
+s = open(P).read()
+edit("\nvdc_t vdc;\n", r'''
+vdc_t vdc;
+
+/* K4510 (BMC64Port): the raster lines the VDC displayed in the last frame,
+ * for x128's sidebar to crop the borders off (src/arch/sdl/video_sdl2.c). */
+static unsigned int k4510_y0 = ~0u, k4510_y1, k4510_top, k4510_bottom;
+
+int k4510_vdc_area(struct video_canvas_s *canvas, unsigned int *x0, unsigned int *y0,
+                   unsigned int *x1, unsigned int *y1);
+int k4510_vdc_area(struct video_canvas_s *canvas, unsigned int *x0, unsigned int *y0,
+                   unsigned int *x1, unsigned int *y1)
+{
+    if (canvas != vdc.raster.canvas || k4510_bottom <= k4510_top) {
+        return 0;
+    }
+    *x0 = vdc.border_width;
+    *x1 = vdc.border_width + vdc.charwidth * vdc.screen_text_cols;
+    *y0 = k4510_top;
+    *y1 = k4510_bottom + 1;
+    return 1;
+}
+''')
+edit("    static unsigned int stable_size_count = 0;\n",
+     "    static unsigned int stable_size_count = 0;\n\n"
+     "    if (vdc.display_enable) {\n"
+     "        k4510_y0 = MIN(k4510_y0, vdc.raster.current_line);\n"
+     "        k4510_y1 = MAX(k4510_y1, vdc.raster.current_line);\n"
+     "    }\n")
+edit("        if (vdc.row_counter == vdc.regs[7]) {\n            vdc.vsync = 1;\n",
+     "        if (vdc.row_counter == vdc.regs[7]) {\n"
+     "            if (k4510_y0 <= k4510_y1) {\n"
+     "                k4510_top = k4510_y0;\n"
+     "                k4510_bottom = k4510_y1;\n"
+     "            }\n"
+     "            k4510_y0 = ~0u;\n"
+     "            k4510_y1 = 0;\n"
+     "            vdc.vsync = 1;\n")
+open(P, "w").write(s)
+
+P = "src/arch/sdl/menu_video.c"
+s = open(P).read()
+edit("const ui_menu_entry_t c128_video_menu[] = {\n", r'''/* K4510 (BMC64Port): the 40/80 DISPLAY key, latched like the real one.  The
+ * C128 reads it at reset: down = start in 80 columns. */
+static UI_MENU_CALLBACK(k4510_column_key_callback)
+{
+    int up = 1;
+
+    resources_get_int("C128ColumnKey", &up);
+    if (activated) {
+        resources_set_int("C128ColumnKey", !up);
+        return NULL;
+    }
+    return up ? "up (40 cols at reset)" : "down (80 cols at reset)";
+}
+
+const ui_menu_entry_t c128_video_menu[] = {
+''')
+edit("        .data     = (ui_callback_data_t)VIDEO_OUTPUT_DUAL_WINDOW\n    },\n#endif\n    SDL_MENU_ITEM_SEPARATOR,\n",
+     "        .data     = (ui_callback_data_t)VIDEO_OUTPUT_DUAL_WINDOW\n    },\n#endif\n"
+     "    {   .string   = \"40/80 key\",\n"
+     "        .type     = MENU_ENTRY_OTHER,\n"
+     "        .callback = k4510_column_key_callback\n"
+     "    },\n"
+     "    SDL_MENU_ITEM_SEPARATOR,\n")
+open(P, "w").write(s)
+print("vice/apply.py: placement, sidebar, C128 dual display, VDC crop, 40/80 key in")

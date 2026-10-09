@@ -26,6 +26,13 @@ F12 menu writes it). Left puts the picture flush left at full height and
 leaves `{pic right edge, 0, rest of width, full height}` free for a sidebar
 (the K4510's savers.c, later: a pixel-buffer library each emulator dlopens).
 
+**C128**, placement left: the other display lives in the sidebar (the VDC
+with its borders cropped off), F12 -> Video settings -> VICII/VDC swaps them.
+C128 keys on the PC: ESC = F9 (so ESC X = F9 then X, switching the BASIC
+screen), 40/80 DISPLAY = keypad `/`, or F12 -> Video settings -> 40/80 key
+(latched; the C128 reads it at reset, so down + reset = 80 columns).
+`K4510_C128_DUAL=0` / `K4510_VDC_CROP=0` turn the dual display / the crop off.
+
 **Software** in `~/personalities/` (on p4, where each file browser starts):
 the C64 library curated from Doc's collection by `tools/curate-c64.sh`
 (GAMES DEMOS UTILS LANGUAGES DOCS; MANIFEST.txt says where each came from),
