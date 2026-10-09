@@ -35,7 +35,7 @@ Two upstream bugs patched at build time: VICE 3.10 crashes at the banner when
 stdout is not a terminal (`src/log.c`); Amiberry 8.3.0's non-OpenGL renderer
 does not compile (`sdl_renderer.cpp`, a misnamed SDL3 type).
 
-## The K4510 side (K4510 repo, merged 745d8e8; spacebar menu on branch `personalities-space`)
+## The K4510 side (K4510 repo, master: 745d8e8 + spacebar menu a5cdeb0)
 
 - `linux/config/includes.chroot/usr/local/bin/k4510-personality` — copy the image to /run, mount, run
 - `linux/config/includes.chroot/usr/local/bin/k4510-boot-menu` — 1 s wait for a held space, then the menu
