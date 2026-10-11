@@ -88,10 +88,10 @@ VIC-20 and Plus/4 are sidelined (Doc, 2026-10-08).
     tools/deploy-dell.sh             # images to p4, starting files to ~/personalities
     tools/deploy-dell.sh -n --only k4532   # what one family's deploy would copy, sending nothing
 
-`tools/build-k4532.sh` clones `K4532_REPO` (default `~/Projects/K4532`) into
+`tools/build-k4532.sh` clones `K4532_REPO` (local.cfg: your K4532 checkout or its git URL) into
 `work/k4532-src` at `K4532_REF` (local.cfg; default a34e72c, phase 1), takes
 its k4510 submodule from `K4510_MIRROR` (default
-`~/LocalRepositories/k4510.git`), and runs K4532's own `make` there on the
+https://github.com/mlongval/k4510.git), and runs K4532's own `make` there on the
 host (the ROM, K32 and the 4532 programs need cc65 and the RISC-V GCC, which
 the builder lacks); then it compiles the emulator and the Tube's BBC BASIC
 again inside personalities-builder from a copy of that tree, for trixie's

@@ -19,5 +19,5 @@ DEPLOY_HOST="k4510@k4510.local"
 # The K4532 personality (tools/build-k4532.sh): which commit of K4532 to
 # build, where to clone it from, and where its k4510 submodule comes from.
 K4532_REF="a34e72c"
-K4532_REPO="$HOME/Projects/K4532"
+K4532_REPO="/path/to/K4532"          # a checkout or a git URL
 K4510_MIRROR="https://github.com/mlongval/k4510.git"

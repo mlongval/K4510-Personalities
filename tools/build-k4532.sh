@@ -1,6 +1,6 @@
 #!/bin/sh
 # The K4532 personality: the K4510 with a 4532 CPU mode (RISC-V RV32IM),
-# Doc's own ~/Projects/K4532 (private).  Runs on the HOST (not inside the
+# Doc's own K4532 repo (private; K4532_REPO in local.cfg).  Runs on the HOST (not inside the
 # builder), in three steps:
 #
 #   1. a clone of K4532 at K4532_REF (local.cfg; default a34e72c, phase 1)
@@ -24,8 +24,8 @@ set -e
 HERE=$(cd "$(dirname "$0")/.." && pwd); W=$HERE/work
 [ -f "$HERE/local.cfg" ] && . "$HERE/local.cfg"
 REF=${K4532_REF:-a34e72c}
-REPO=${K4532_REPO:-$HOME/Projects/K4532}                    # read only: cloned, never built in
-MIRROR=${K4510_MIRROR:-$HOME/LocalRepositories/k4510.git}   # or https://github.com/mlongval/k4510.git
+REPO=${K4532_REPO:?set K4532_REPO in local.cfg}             # read only: cloned, never built in
+MIRROR=${K4510_MIRROR:-https://github.com/mlongval/k4510.git}   # a local mirror is faster
 export PATH=$HOME/opt/cc65/bin:$PATH
 S=$W/k4532-src; T=$W/k4532-trixie; ST=$W/stage/k4532
 
