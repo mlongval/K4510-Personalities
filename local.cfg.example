@@ -1,5 +1,6 @@
 # Copy to local.cfg (not tracked) and point it at your own files.  Sourced by
-# tools/make-images.sh, tools/curate-c64.sh and tools/deploy-dell.sh.
+# tools/make-images.sh, tools/curate-c64.sh, tools/deploy-dell.sh and
+# tools/build-k4532.sh.
 # Kickstart ROMs and Workbench disks are copyrighted: bring your own (e.g.
 # Amiga Forever).
 
@@ -14,3 +15,9 @@ C64_COLLECTION="$HOME/Emulation"
 
 # The K4510 machine tools/deploy-dell.sh copies to.
 DEPLOY_HOST="k4510@k4510.local"
+
+# The K4532 personality (tools/build-k4532.sh): which commit of K4532 to
+# build, where to clone it from, and where its k4510 submodule comes from.
+K4532_REF="a34e72c"
+K4532_REPO="$HOME/Projects/K4532"
+K4510_MIRROR="https://github.com/mlongval/k4510.git"

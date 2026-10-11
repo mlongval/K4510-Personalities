@@ -5,6 +5,8 @@
 #   work/out/personalities/vice.squashfs   x64sc x128 xpet + ROMs + libs
 #   work/out/personalities/amiga.squashfs  amiberry + 2 Kickstarts + libs
 #   work/out/personalities/x16.squashfs    x16emu + the X16 ROM (r49)
+#   work/out/personalities/k4532.squashfs  the K4532 emulator, K/OS ROM, its disk
+#                                          (tools/build-k4532.sh stages it)
 #   work/out/personalities/*.list          name<TAB>title, one per personality
 #   work/out/home/personalities/<name>/    floppies, the A1200's DH0 -- these
 #                                          go to the disk (p4), never to RAM
@@ -12,7 +14,14 @@
 # Libraries: whatever the binaries need that the K4510x base does not have
 # (asked of k4510-base-mimic, built from the K4510 repo's packages.list) is
 # copied from the builder into the image's lib/.  Same Debian, same versions.
+#
+#   tools/make-images.sh             every family (and the starting files);
+#                                    k4532 too once build-k4532.sh has run
+#   tools/make-images.sh k4532 ...   only those images: the others, and
+#                                    work/out/home, stay as they are
 set -e
+FAMS="$*"
+want() { [ -z "$FAMS" ] || case " $FAMS " in *" $1 "*) ;; *) return 1 ;; esac; }
 HERE=$(cd "$(dirname "$0")/.." && pwd)
 W=$HERE/work; OUT=$W/out; IMG=$W/img
 # Your own Amiga files -- Kickstart ROMs are not ours to give away -- named in
@@ -22,38 +31,64 @@ KS13=${KS13:-$HOME/Amiga/kick13-a500.rom}          # Kickstart 1.3 (34.5), A500
 KS31=${KS31:-$HOME/Amiga/kick31-a1200.rom}         # Kickstart 3.1 (40.68), A1200
 WB=${WB:-$HOME/Amiga/Workbench}                    # amiga-os-134-*.adf, amiga-os-310-*.adf
 GAMES=${GAMES:-$HOME/Amiga/Floppies}               # optional: more .adf for the A500
-for f in "$KS13" "$KS31" "$WB"; do [ -e "$f" ] || { echo "make-images.sh: missing $f (set it in local.cfg)"; exit 1; }; done
-rm -rf "$IMG" "$OUT"; mkdir -p "$IMG" "$OUT/personalities" "$OUT/home/personalities"
+if want amiga; then
+    for f in "$KS13" "$KS31" "$WB"; do [ -e "$f" ] || { echo "make-images.sh: missing $f (set it in local.cfg)"; exit 1; }; done
+fi
+if [ -z "$FAMS" ]; then
+    FAMS="vice amiga x16"
+    if [ -d $W/stage/k4532 ]; then FAMS="$FAMS k4532"; else echo "make-images.sh: no work/stage/k4532 (tools/build-k4532.sh), no k4532 image"; fi
+    rm -rf "$IMG" "$OUT"; ALL=1
+else
+    for fam in $FAMS; do rm -rf "$IMG/$fam" "$OUT/personalities/$fam".*; done; ALL=
+fi
+mkdir -p "$IMG" "$OUT/personalities" "$OUT/home/personalities"
 
 # --- vice: only the three machines, their data, and the disk tools
+if want vice; then
 V=$IMG/vice; S=$W/stage/vice/opt/personalities/vice
 mkdir -p $V/bin $V/share/vice $V/lib $V/run
 cp $S/bin/x64sc $S/bin/x128 $S/bin/xpet $S/bin/c1541 $S/bin/petcat $V/bin/
 for d in C64 C128 PET DRIVES PRINTER common hotkeys; do [ -d $S/share/vice/$d ] && cp -a $S/share/vice/$d $V/share/vice/; done
 cp "$HERE/machine/vice/run" $V/run/vice; cp "$HERE/machine/vice/list" $V/list
+fi
 
 # --- amiga
+if want amiga; then
 A=$IMG/amiga; S=$W/stage/amiga/opt/personalities/amiga
 mkdir -p $A/kickstarts $A/run $A/conf
 cp -a $S/bin $S/lib $S/share $A/
 cp "$KS13" $A/kickstarts/kick13-a500.rom; cp "$KS31" $A/kickstarts/kick31-a1200.rom
 cp "$HERE/machine/amiga/run" $A/run/amiga; cp "$HERE/machine/amiga/conf/"*.uae $A/conf/
 cp "$HERE/machine/amiga/list" $A/list
+fi
 
 # --- x16
+if want x16; then
 X=$IMG/x16; S=$W/stage/x16
 mkdir -p $X/bin $X/lib $X/run
 cp $S/bin/x16emu $X/bin/; cp $S/rom.bin $X/
 cp "$HERE/machine/x16/run" $X/run/x16; cp "$HERE/machine/x16/list" $X/list
+fi
+
+# --- k4532: the K4532 emulator, K/OS's ROM and fonts, the disk it starts
+# from (fs/, with fs.sha256 for run/k4532's copying), the Tube's BASIC
+if want k4532; then
+K=$IMG/k4532; S=$W/stage/k4532
+[ -d $S ] || { echo "make-images.sh: no work/stage/k4532: tools/build-k4532.sh first"; exit 1; }
+mkdir -p $K/lib $K/run
+cp -a $S/. $K/
+cp "$HERE/machine/k4532/run" $K/run/k4532; cp "$HERE/machine/k4532/list" $K/list
+fi
 
 for fam in vice amiga; do
+    want $fam || continue
     for n in $(cut -f1 $IMG/$fam/list); do ln -s $fam $IMG/$fam/run/$n; done
 done
 
 # strip, bundle the missing libraries (until nothing is missing), squash
 podman run --rm -v "$W:/work:Z" personalities-builder sh -c '
-    find /work/img -type f \( -path "*/bin/*" -o -name "*.so*" \) -exec sh -c "file -b \"\$1\" | grep -q ELF && strip --strip-unneeded \"\$1\"" _ {} \;'
-for fam in vice amiga x16; do
+    cd /work/img && find '"$FAMS"' -type f \( -path "*/bin/*" -o -name "*.so*" \) -exec sh -c "file -b \"\$1\" | grep -q ELF && strip --strip-unneeded \"\$1\"" _ {} \;'
+for fam in $FAMS; do
     for pass in 1 2 3 4 5; do
         missing=$(podman run --rm -v "$IMG/$fam:/opt/personalities/$fam:ro,Z" k4510-base-mimic sh -c "
             export LD_LIBRARY_PATH=/opt/personalities/$fam/lib:/opt/personalities/$fam/lib/amiberry
@@ -72,7 +107,9 @@ for fam in vice amiga x16; do
     echo "$fam.squashfs: $(du -h "$OUT/personalities/$fam.squashfs" | cut -f1)"
 done
 
-# --- the user's starting files (the disk, not RAM)
+# --- the user's starting files (the disk, not RAM): a whole run only (the
+# K4532's disk is in its image; run/k4532 copies it)
+[ -n "$ALL" ] || exit 0
 H=$OUT/home/personalities
 mkdir -p $H/c64 $H/c128 $H/pet $H/x16 $H/a500/floppies $H/a1200/floppies
 cp "$WB"/amiga-os-134-*.adf $H/a500/floppies/

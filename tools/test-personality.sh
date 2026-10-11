@@ -3,6 +3,9 @@
 #   tools/test-personality.sh c64 [seconds [args...]]  -> work/shots/c64.jpg
 # (args go to the machine, e.g. a disk to autostart; paths under ~ are
 # /home/k4510/...)
+# The K4532 takes K4510_KEYS from the environment, typed at its prompt
+# (K4510_KEYS="$(printf '~~~~~~~~K32 HELLO\r')" tools/test-personality.sh k4532 14; each ~
+# waits half a second).
 # The image is unsquashed (rootless podman cannot loop-mount) to the path the
 # machine mounts it at; HOME is a copy of work/out/home.
 set -e
@@ -14,6 +17,7 @@ case $name in
 c64)  extra="-sounddev dummy +VICIIfull" ;;
 c128) extra="-sounddev dummy +VICIIfull +VDCfull" ;;
 pet)  extra="-sounddev dummy +CRTCfull" ;;
+k4532) extra=""; envs="-e K4510_WINDOW=1024x768 -e K4510_KEYS" ;;   # the window is the Xvfb screen
 *)    extra="" ;;
 esac
 shot=${SHOT:-$name}
@@ -22,7 +26,7 @@ mkdir -p $W/shots; rm -rf $W/test-$fam $W/test-home
 unsquashfs -q -d $W/test-$fam $W/out/personalities/$fam.squashfs
 mkdir -p $W/test-home && cp -a $W/out/home/personalities $W/test-home/
 podman run --rm -v $W/test-$fam:/opt/personalities/$fam:ro,Z -v $W/test-home:/home/k4510:Z \
-    -v $W/shots:/shots:Z -e HOME=/home/k4510 -e SDL_AUDIODRIVER=dummy k4510-base-test sh -c "
+    -v $W/shots:/shots:Z -e HOME=/home/k4510 -e SDL_AUDIODRIVER=dummy $envs k4510-base-test sh -c "
 
     Xvfb :1 -screen 0 1024x768x24 >/dev/null 2>&1 & sleep 1; export DISPLAY=:1
     /opt/personalities/$fam/run/$name $extra \"\$@\" >/shots/$shot.log 2>&1 & sleep $secs

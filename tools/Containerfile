@@ -4,7 +4,7 @@
 FROM docker.io/library/debian:trixie
 RUN apt-get update && apt-get install -y --no-install-recommends \
       build-essential pkg-config autoconf automake libtool flex bison dos2unix \
-      xa65 texinfo cmake ninja-build git ca-certificates curl xz-utils file patchelf \
+      xa65 nasm texinfo cmake ninja-build git ca-certificates curl xz-utils file patchelf \
       libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev libpng-dev zlib1g-dev \
       libasound2-dev libmpg123-dev libflac-dev libcurl4-openssl-dev \
       libserialport-dev libportmidi-dev libenet-dev libzstd-dev libmpeg2-4-dev \
