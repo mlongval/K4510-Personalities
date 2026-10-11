@@ -8,6 +8,7 @@ ALIAS HOST TELNET 127.0.0.1 23
 # (40 columns at the smallest text size: the lines are kept short)
 ECHO K4532: the K4510 with a RISC-V CPU,
 ECHO the 4532 (RV32IMFD, 32-bit, flat).
-ECHO Try K32 HELLO, K32 FPU, K32 VICKY.
-ECHO KOS32: K/OS-32, the 4532's own OS.
-ECHO F12 > Machine > Quit: the Chooser.
+ECHO K/OS-32 starts next. Try HELLO, FPU,
+ECHO VICKY, DIR. EXIT: the 4510's shell,
+ECHO KOS32 goes back. F12 > Machine >
+ECHO Quit: the Chooser.
