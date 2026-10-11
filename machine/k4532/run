@@ -1,6 +1,6 @@
 #!/bin/sh
 # Start the K4532 personality: this is run/k4532.  The K4510 with a 4532
-# CPU mode (RISC-V RV32IM; the K4532 repo), from the image
+# CPU mode (RISC-V RV32IMFD; the K4532 repo), from the image
 # k4510-personality mounted at /opt/personalities/k4532.
 #
 # The same emulator as the K4510's, run the way k4510-session runs that one
