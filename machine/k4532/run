@@ -59,9 +59,9 @@ for c in k4510.cfg k4510-menu.cfg; do
 done
 [ -f "$D/k4510.cfg" ] || printf 'version = 3\ncpu.auto = on\nterm.bands = on\nvideo.fullscreen = on\n' > "$D/k4510.cfg"
 
-# straight into K/OS-32 (Doc, 2026-10-11): K/OS starts as always, runs
-# STARTUP.BAT, and finds KOS32 typed at its first prompt; EXIT there is the
-# 4510's shell.  K4532_BOOT=4510 in the environment turns it off.
+# K/OS from power-on: the K4532's ROM is K/OS itself (rom/kos.k32, K4532's
+# PLAN.md step 2; an older image typed KOS32 at the 4510's K/OS, which this
+# value still asks for).  K4532_BOOT=4510 boots the 4510 instead.
 export K4532_BOOT=${K4532_BOOT:-KOS32}
 # PAS and CC: the compilers in the image (k4532-pas, k4532-cc run on this
 # Linux through the Tube; GCC for RISC-V and Free Pascal's cross-compiler)

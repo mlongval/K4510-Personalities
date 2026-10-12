@@ -99,6 +99,7 @@ fi
 rm -rf "$ST"; mkdir -p "$ST/bin" "$ST/rom" "$ST/data" "$ST/tube" "$ST/fs"
 cp "$T/sdl/k4510" "$ST/bin/k4532"
 cp "$K/rom/kernal.bin" "$ST/rom/"
+[ -f "$K/rom/kos.k32" ] && cp "$K/rom/kos.k32" "$ST/rom/"   # K/OS from power-on (K4532 PLAN.md step 2)
 cp -a "$K/data/fonts" "$ST/data/"
 cp "$T/tube/bbcbasic" "$ST/tube/"
 # the compilers (2b), and what they need of the K4532 tree: their scripts
