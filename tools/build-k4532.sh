@@ -52,8 +52,9 @@ fi
 make -C "$S" -j"$(nproc)" K4510_BUILD="$BUILD" >"$W/k4532-host-make.log" 2>&1 || { tail -30 "$W/k4532-host-make.log"; exit 1; }
 echo "$full" > "$S/.built-ref"
 PIN=${BUILD#0.9-}; PIN=${PIN%-K32}
-for f in rom/kos.k32 fs/APPS/K4532/HELLO.K32; do
-    [ -f "$K/$f" ] || { echo "build-k4532.sh: $f was not built"; exit 1; }
+for f in rom/kos.k32 HELLO.K32; do         # HELLO: /APPS/DEMOS since 2026-10-12, /APPS/K4532 before
+    case $f in HELLO.K32) [ -f "$K/fs/APPS/DEMOS/$f" ] || [ -f "$K/fs/APPS/K4532/$f" ] ;; *) [ -f "$K/$f" ] ;; esac ||
+        { echo "build-k4532.sh: $f was not built"; exit 1; }
 done
 
 # --- 2. the emulator, compiled for trixie (the host built one for itself)

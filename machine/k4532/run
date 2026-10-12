@@ -7,7 +7,7 @@
 # (from its own directory, full screen on tty1's KMS display), but with a
 # directory of its own: ~/personalities/k4532 (p4), holding
 #   fs/                 its disk -- K/OS's files, K32 and the 4532 programs
-#                       (/APPS/K4532), and a STARTUP.BAT that says hello
+#                       (/APPS/DEMOS), and a STARTUP.BAT that says hello
 #   k4510.cfg           its settings (the F12 menu's), started from the
 #   k4510-menu.cfg      K4510's own on the first run, its own after that
 #   k4510-slot*.k4s     the save states; k4510-resume.k4s, Save and power off
@@ -20,7 +20,10 @@
 # list of what was shipped last), a file new to the image is copied in if
 # the name is free; a file the image changed replaces yours only if yours
 # is still the one shipped before (unedited); a shipped file you deleted
-# stays deleted.  Your own files are never touched.
+# stays deleted; a shipped file the image no longer has goes if yours is
+# still the one shipped (moved or retired, e.g. the 2026-10-12 tidy), and
+# so does its folder if that leaves it empty.  Your own files are never
+# touched.
 #
 # Quitting: F12 > Machine > Quit the emulator (back to the Chooser), or
 # Power off / Save and power off (the machine goes off, as from the K4510).
@@ -48,6 +51,15 @@ if ! cmp -s "$X/fs.sha256" "$S"; then
     (cd "$X/fs" && find . -type l) | while read -r p; do
         f=$D/fs/${p#./}
         [ -e "$f" ] || [ -L "$f" ] || { mkdir -p "${f%/*}" && cp -P "$X/fs/${p#./}" "$f"; }
+    done
+    # what the image dropped: removed where it is still the copy shipped
+    [ ! -f "$S" ] || awk 'NR == FNR { now[substr($0, 67)] = 1; next }
+        !(substr($0, 67) in now) { print substr($0, 1, 64), substr($0, 67) }' "$X/fs.sha256" "$S" |
+    while read -r old p; do
+        f=$D/fs/${p#./}
+        [ -f "$f" ] && [ ! -L "$f" ] && [ "$(sha256sum < "$f" | cut -c1-64)" = "$old" ] || continue
+        rm -f "$f"; d=${f%/*}
+        while [ "$d" != "$D/fs" ] && rmdir "$d" 2>/dev/null; do d=${d%/*}; done
     done
     cp "$X/fs.sha256" "$S"
 fi
