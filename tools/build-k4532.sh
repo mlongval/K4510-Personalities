@@ -4,9 +4,10 @@
 # builder), in three steps:
 #
 #   1. a clone of K4532 at K4532_REF (local.cfg; default a34e72c, phase 1)
-#      in work/k4532-src, its k4510 submodule from K4510_MIRROR, and K4532's
-#      own `make` there: the patched tree work/k4532-src/work/k4510 with the
-#      K/OS ROM, the programs, K32 and the 4532 demos.  The host has what
+#      in work/k4532-src and K4532's own `make` there: the K/OS ROM, the
+#      programs, K32 and the 4532 demos (a commit before 2026-10-12 is a
+#      thin repository: its k4510 submodule from K4510_MIRROR, the patched
+#      tree in work/k4532-src/work/k4510).  The host has what
 #      that needs (cc65 in ~/opt/cc65/bin, riscv64-unknown-elf-gcc and
 #      picolibc); the builder has neither.
 #   2. the emulator itself (sdl/k4510, SDL2) and the Tube's BBC BASIC
@@ -33,17 +34,24 @@ S=$W/k4532-src; T=$W/k4532-trixie; ST=$W/stage/k4532
 [ -d "$S/.git" ] || git clone -q "$REPO" "$S"
 git -C "$S" fetch -q origin
 git -C "$S" -c advice.detachedHead=false checkout -q --force "$REF"
-git -C "$S" config submodule.k4510.url "$MIRROR"
-git -C "$S" -c protocol.file.allow=always submodule update -q --init --force
 full=$(git -C "$S" rev-parse HEAD)
-# another commit: its work tree from scratch (mktree.sh would otherwise
-# refuse a tree it cannot account for)
-[ "$(cat "$S/.built-ref" 2>/dev/null)" = "$full" ] || rm -rf "$S/work"
-make -C "$S" -j"$(nproc)" >"$W/k4532-host-make.log" 2>&1 || { tail -30 "$W/k4532-host-make.log"; exit 1; }
+if [ -f "$S/.gitmodules" ]; then
+    # before 2026-10-12, a thin repository: k4510 as a submodule, built in
+    # work/k4510 (a commit of that time still builds this way)
+    git -C "$S" config submodule.k4510.url "$MIRROR"
+    git -C "$S" -c protocol.file.allow=always submodule update -q --init --force
+    [ "$(cat "$S/.built-ref" 2>/dev/null)" = "$full" ] || rm -rf "$S/work"
+    K=$S/work/k4510
+    BUILD=0.9-$(git -C "$S/k4510" rev-parse --short=7 HEAD)-K32
+else
+    # one tree (K4532's PLAN.md, step 1): built where it is
+    rm -rf "$S/k4510" "$S/work"                # a thin commit's leftovers
+    K=$S
+    BUILD=0.9-$(git -C "$S" rev-parse --short=7 HEAD)
+fi
+make -C "$S" -j"$(nproc)" K4510_BUILD="$BUILD" >"$W/k4532-host-make.log" 2>&1 || { tail -30 "$W/k4532-host-make.log"; exit 1; }
 echo "$full" > "$S/.built-ref"
-K=$S/work/k4510
-PIN=$(git -C "$S/k4510" rev-parse --short=7 HEAD)
-BUILD=0.9-$PIN-K32                           # K4532's Makefile's: the version register
+PIN=${BUILD#0.9-}; PIN=${PIN%-K32}
 for f in rom/kernal.bin fs/SYSTEM/BIN/k32.prg fs/APPS/K4532/HELLO.K32; do
     [ -f "$K/$f" ] || { echo "build-k4532.sh: $f was not built"; exit 1; }
 done
