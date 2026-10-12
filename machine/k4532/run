@@ -59,14 +59,12 @@ for c in k4510.cfg k4510-menu.cfg; do
 done
 [ -f "$D/k4510.cfg" ] || printf 'version = 3\ncpu.auto = on\nterm.bands = on\nvideo.fullscreen = on\n' > "$D/k4510.cfg"
 
-# K/OS from power-on: the K4532's ROM is K/OS itself (rom/kos.k32, K4532's
-# PLAN.md step 2; an older image typed KOS32 at the 4510's K/OS, which this
-# value still asks for).  K4532_BOOT=4510 boots the 4510 instead.
-export K4532_BOOT=${K4532_BOOT:-KOS32}
+# K/OS from power-on: the K4532's ROM is K/OS itself (rom/kos.k32; the
+# 4510 is gone from the machine, K4532's PLAN.md step 3).
 # PAS and CC: the compilers in the image (k4532-pas, k4532-cc run on this
 # Linux through the Tube; GCC for RISC-V and Free Pascal's cross-compiler)
 export PATH=$X/rvgcc/bin:$PATH K4532_FPC=$X/fpc
 unset K4510
 export LD_LIBRARY_PATH=$X/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
 cd "$D" || exit 1
-exec "$X/bin/k4532" "$X/rom/kernal.bin" fs "$@"
+exec "$X/bin/k4532" "$X/rom/kos.k32" fs "$@"

@@ -52,7 +52,7 @@ fi
 make -C "$S" -j"$(nproc)" K4510_BUILD="$BUILD" >"$W/k4532-host-make.log" 2>&1 || { tail -30 "$W/k4532-host-make.log"; exit 1; }
 echo "$full" > "$S/.built-ref"
 PIN=${BUILD#0.9-}; PIN=${PIN%-K32}
-for f in rom/kernal.bin fs/SYSTEM/BIN/k32.prg fs/APPS/K4532/HELLO.K32; do
+for f in rom/kos.k32 fs/APPS/K4532/HELLO.K32; do
     [ -f "$K/$f" ] || { echo "build-k4532.sh: $f was not built"; exit 1; }
 done
 
@@ -98,8 +98,7 @@ fi
 # --- 3. the stage
 rm -rf "$ST"; mkdir -p "$ST/bin" "$ST/rom" "$ST/data" "$ST/tube" "$ST/fs"
 cp "$T/sdl/k4510" "$ST/bin/k4532"
-cp "$K/rom/kernal.bin" "$ST/rom/"
-[ -f "$K/rom/kos.k32" ] && cp "$K/rom/kos.k32" "$ST/rom/"   # K/OS from power-on (K4532 PLAN.md step 2)
+cp "$K/rom/kos.k32" "$ST/rom/"               # K/OS, the machine's ROM (the 4510's kernal.bin went, K4532 PLAN.md step 3)
 cp -a "$K/data/fonts" "$ST/data/"
 cp "$T/tube/bbcbasic" "$ST/tube/"
 # the compilers (2b), and what they need of the K4532 tree: their scripts
