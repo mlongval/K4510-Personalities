@@ -92,7 +92,7 @@ for fam in $FAMS; do
     for pass in 1 2 3 4 5; do
         missing=$(podman run --rm -v "$IMG/$fam:/opt/personalities/$fam:ro,Z" k4510-base-mimic sh -c "
             export LD_LIBRARY_PATH=/opt/personalities/$fam/lib:/opt/personalities/$fam/lib/amiberry
-            find /opt/personalities/$fam -type f \( -path '*/bin/*' -o -name '*.so*' \) | while read f; do ldd \"\$f\" 2>/dev/null; done" \
+            find /opt/personalities/$fam -type f \( -path '*/bin/*' -o -name '*.so*' -o -path '*/lib/gcc/*' -perm -u+x \) | while read f; do ldd \"\$f\" 2>/dev/null; done" \
             | awk '/not found/{print $1}' | sort -u)
         missing=$(echo $missing); [ -n "$missing" ] || break
         echo "$fam pass $pass: bundling $(echo $missing | wc -w) libraries"

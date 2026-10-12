@@ -12,7 +12,8 @@
 #   k4510-menu.cfg      K4510's own on the first run, its own after that
 #   k4510-slot*.k4s     the save states; k4510-resume.k4s, Save and power off
 #   shots/              screenshots
-#   data tube           links into the image (the fonts, the Tube's BASIC)
+#   data tube tools     links into the image (the fonts, the Tube's BASIC,
+#                       the compilers' scripts: the Tube puts tools/ on PATH)
 #
 # The disk: on the first run the image's fs/ is copied in whole.  After
 # that, when a newer image ships (its fs.sha256 differs from .shipped, the
@@ -26,7 +27,7 @@
 X=/opt/personalities/k4532
 D=$HOME/personalities/k4532
 mkdir -p "$D/fs" "$D/shots" || exit 1
-for l in data tube; do
+for l in data tube tools; do
     { [ -L "$D/$l" ] || [ ! -e "$D/$l" ]; } && ln -sfn "$X/$l" "$D/$l"
 done
 
@@ -62,6 +63,10 @@ done
 # STARTUP.BAT, and finds KOS32 typed at its first prompt; EXIT there is the
 # 4510's shell.  K4532_BOOT=4510 in the environment turns it off.
 export K4532_BOOT=${K4532_BOOT:-KOS32}
+# PAS and CC: the compilers in the image (k4532-pas, k4532-cc run on this
+# Linux through the Tube; GCC for RISC-V and Free Pascal's cross-compiler)
+export PATH=$X/rvgcc/bin:$PATH K4532_FPC=$X/fpc
+unset K4510
 export LD_LIBRARY_PATH=$X/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
 cd "$D" || exit 1
 exec "$X/bin/k4532" "$X/rom/kernal.bin" fs "$@"

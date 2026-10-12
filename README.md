@@ -14,7 +14,7 @@ Pi bare-metal glue around VICE 3.3; upstream VICE's SDL UI is the better fit.)
 | c64 (+512K REU), c128, pet (4032, 40 columns) | VICE 3.10, SDL2 UI (x64sc, x128, xpet) | `vice.squashfs` ~5 MB |
 | a500 (KS 1.3, WB 1.3 in DF0), a1200 (KS 3.1, WB 3.1 on DH0) | Amiberry 8.3.0, SDL3, no OpenGL | `amiga.squashfs` ~18 MB |
 | x16 (Commander X16, ROM r49; drive 8 = `~/personalities/x16`) | x16emu r49, SDL2 | `x16.squashfs` ~0.2 MB |
-| k4532 (the K4510 with a 4532 CPU mode, RISC-V RV32IM: `K32 HELLO`; disk `~/personalities/k4532/fs`) | Doc's K4532 (`K4532_REF`, default a34e72c), SDL2 | `k4532.squashfs` ~1.3 MB |
+| k4532 (the K4510 with a 4532 CPU mode, RISC-V RV32IMFD, starting in K/OS; disk `~/personalities/k4532/fs`; PAS and CC compile there) | Doc's K4532 (`K4532_REF`, default a34e72c), SDL2; RISC-V GCC + picolibc, Free Pascal | `k4532.squashfs` ~41 MB |
 
 Quitting back to the K4510: VICE and Amiberry F12 -> Quit; the X16 F12 ->
 Exit to the K4510 (our menu: also Reset, Warp, Placement, Scale, Sidebar), Alt+F4, or
@@ -36,6 +36,16 @@ what it is and to type `K32 HELLO` (also `K32 BIG`, `K32 VICKY`, `K32 TRAP
 NULL`; the programs are in `/APPS/K4532`). The banner's build is
 `0.9-<k4510 pin>-K32`. K/OS's ROM is k4510's own, unchanged (K4532 does not
 patch it).
+
+The image carries the compilers K/OS's `PAS NAME` and `CC NAME` run on the
+Linux beneath (through the Tube): `rvgcc/` is trixie's RISC-V GCC, binutils
+and picolibc cut down to the 4532's one multilib (rv32imfd/ilp32d; picolibc's
+specs name `/opt/personalities/k4532/rvgcc`), `fpc/` Free Pascal's
+riscv32-embedded cross-compiler and RTL (K4532's `tools/fpc-k4532.sh`, from
+the host's `K4532_FPC`, default `~/opt/fpc-k4532`), `tools/` the K4532's
+`k4532-cc`, `k4532-pas`, `mk4532.py`, `port4510.py`, and `rv32/` what they
+link with. `run/k4532` links `tools` beside `fs/` (the Tube puts it on PATH)
+and puts `rvgcc/bin` on PATH.
 
 **Placement** (all three emulators, build-time patches in `tools/patches/`):
 `K4510_PLACEMENT=left|centre`, `K4510_SCALE=fit|integer`, defaults from
@@ -79,7 +89,7 @@ VIC-20 and Plus/4 are sidelined (Doc, 2026-10-08).
     podman run --rm -v $PWD/work:/work:Z -v $PWD/tools:/tools:ro personalities-builder sh /tools/build-vice.sh
     podman run --rm -v $PWD/work:/work:Z -v $PWD/tools:/tools:ro personalities-builder sh /tools/build-amiberry.sh
     podman run --rm -v $PWD/work:/work:Z -v $PWD/tools:/tools:ro personalities-builder sh /tools/build-x16.sh
-    tools/build-k4532.sh             # on the HOST: needs cc65 (~/opt/cc65/bin), riscv64-unknown-elf-gcc + picolibc
+    tools/build-k4532.sh             # on the HOST: needs cc65 (~/opt/cc65/bin), riscv64-unknown-elf-gcc + picolibc, K4532_FPC
     tools/curate-c64.sh; tools/get-robots.sh   # software for ~/personalities
     tools/make-images.sh             # -> work/out/{personalities,home}  (make-images.sh k4532: that image alone)
     tools/test-personality.sh c64    # -> work/shots/c64.jpg (Xvfb on the base stand-in)
