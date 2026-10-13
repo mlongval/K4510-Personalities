@@ -5,8 +5,6 @@
 #   work/out/personalities/vice.squashfs   x64sc x128 xpet + ROMs + libs
 #   work/out/personalities/amiga.squashfs  amiberry + 2 Kickstarts + libs
 #   work/out/personalities/x16.squashfs    x16emu + the X16 ROM (r49)
-#   work/out/personalities/k4532.squashfs  the K4532 emulator, K/OS ROM, its disk
-#                                          (tools/build-k4532.sh stages it)
 #   work/out/personalities/*.list          name<TAB>title, one per personality
 #   work/out/home/personalities/<name>/    floppies, the A1200's DH0 -- these
 #                                          go to the disk (p4), never to RAM
@@ -16,8 +14,7 @@
 # copied from the builder into the image's lib/.  Same Debian, same versions.
 #
 #   tools/make-images.sh             every family (and the starting files);
-#                                    k4532 too once build-k4532.sh has run
-#   tools/make-images.sh k4532 ...   only those images: the others, and
+#   tools/make-images.sh amiga ...   only those images: the others, and
 #                                    work/out/home, stay as they are
 set -e
 FAMS="$*"
@@ -27,16 +24,14 @@ W=$HERE/work; OUT=$W/out; IMG=$W/img
 # Your own Amiga files -- Kickstart ROMs are not ours to give away -- named in
 # local.cfg (see local.cfg.example), or in the environment.
 [ -f "$HERE/local.cfg" ] && . "$HERE/local.cfg"
-KS13=${KS13:-$HOME/Amiga/kick13-a500.rom}          # Kickstart 1.3 (34.5), A500
 KS31=${KS31:-$HOME/Amiga/kick31-a1200.rom}         # Kickstart 3.1 (40.68), A1200
 WB=${WB:-$HOME/Amiga/Workbench}                    # amiga-os-134-*.adf, amiga-os-310-*.adf
-GAMES=${GAMES:-$HOME/Amiga/Floppies}               # optional: more .adf for the A500
+GAMES=${GAMES:-$HOME/Amiga/Floppies}               # optional: more .adf for the A1200
 if want amiga; then
-    for f in "$KS13" "$KS31" "$WB"; do [ -e "$f" ] || { echo "make-images.sh: missing $f (set it in local.cfg)"; exit 1; }; done
+    for f in "$KS31" "$WB"; do [ -e "$f" ] || { echo "make-images.sh: missing $f (set it in local.cfg)"; exit 1; }; done
 fi
 if [ -z "$FAMS" ]; then
     FAMS="vice amiga x16"
-    if [ -d $W/stage/k4532 ]; then FAMS="$FAMS k4532"; else echo "make-images.sh: no work/stage/k4532 (tools/build-k4532.sh), no k4532 image"; fi
     rm -rf "$IMG" "$OUT"; ALL=1
 else
     for fam in $FAMS; do rm -rf "$IMG/$fam" "$OUT/personalities/$fam".*; done; ALL=
@@ -57,7 +52,7 @@ if want amiga; then
 A=$IMG/amiga; S=$W/stage/amiga/opt/personalities/amiga
 mkdir -p $A/kickstarts $A/run $A/conf
 cp -a $S/bin $S/lib $S/share $A/
-cp "$KS13" $A/kickstarts/kick13-a500.rom; cp "$KS31" $A/kickstarts/kick31-a1200.rom
+cp "$KS31" $A/kickstarts/kick31-a1200.rom          # (the A500 went, 2026-10-12: FEATURES O6)
 cp "$HERE/machine/amiga/run" $A/run/amiga; cp "$HERE/machine/amiga/conf/"*.uae $A/conf/
 cp "$HERE/machine/amiga/list" $A/list
 fi
@@ -68,16 +63,6 @@ X=$IMG/x16; S=$W/stage/x16
 mkdir -p $X/bin $X/lib $X/run
 cp $S/bin/x16emu $X/bin/; cp $S/rom.bin $X/
 cp "$HERE/machine/x16/run" $X/run/x16; cp "$HERE/machine/x16/list" $X/list
-fi
-
-# --- k4532: the K4532 emulator, K/OS's ROM and fonts, the disk it starts
-# from (fs/, with fs.sha256 for run/k4532's copying), the Tube's BASIC
-if want k4532; then
-K=$IMG/k4532; S=$W/stage/k4532
-[ -d $S ] || { echo "make-images.sh: no work/stage/k4532: tools/build-k4532.sh first"; exit 1; }
-mkdir -p $K/lib $K/run
-cp -a $S/. $K/
-cp "$HERE/machine/k4532/run" $K/run/k4532; cp "$HERE/machine/k4532/list" $K/list
 fi
 
 for fam in vice amiga; do
@@ -111,10 +96,9 @@ done
 # K4532's disk is in its image; run/k4532 copies it)
 [ -n "$ALL" ] || exit 0
 H=$OUT/home/personalities
-mkdir -p $H/c64 $H/c128 $H/pet $H/x16 $H/a500/floppies $H/a1200/floppies
-cp "$WB"/amiga-os-134-*.adf $H/a500/floppies/
-cp "$GAMES"/*.adf $H/a500/floppies/ 2>/dev/null || true
-rm -f $H/a500/floppies/wb31-*.adf $H/a500/floppies/EmergencyBootFloppy.adf
+mkdir -p $H/c64 $H/c128 $H/pet $H/x16 $H/a1200/floppies
+cp "$GAMES"/*.adf $H/a1200/floppies/ 2>/dev/null || true
+rm -f $H/a1200/floppies/wb31-*.adf $H/a1200/floppies/EmergencyBootFloppy.adf
 cp "$WB"/amiga-os-310-*.adf $H/a1200/floppies/
 # Workbench 3.1 on the A1200's hard drive: the six disks unpacked into one
 # directory, the way an install by hand copies them.  Every file executable
@@ -162,9 +146,8 @@ PY
     unz $R/C128-shareware-07-07-2022.zip "$H/c128/$G"
     unz $R/Pet-Robots-Shareware-03-29-2022.zip "$H/pet/$G"
     mv "$H/pet/$G/petrobots-shareware v1.1.d64" "$H/pet/$G/petrobots-shareware-v1.1.d64"
-    unz $R/Amiga-Robots-Shareware-03-22-2022.zip "$H/a500/floppies" .adf
-    unz $R/Amiga-Robots-Shareware-03-22-2022.zip "$H/a500/manuals" .pdf
-    cp $H/a500/floppies/sharewarerobots-*.adf $H/a1200/floppies/
+    unz $R/Amiga-Robots-Shareware-03-22-2022.zip "$H/a1200/floppies" .adf
+    unz $R/Amiga-Robots-Shareware-03-22-2022.zip "$H/a1200/manuals" .pdf
     unz $R/X16Robots-12-19-2024.zip "$H/x16/ROBOTS"
 fi
 du -sh $H/*

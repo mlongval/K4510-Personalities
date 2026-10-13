@@ -19,7 +19,10 @@ export K4510_DISPLAY_CFG=$C   # the C128's F12 -> Video settings -> VDC borders 
 # The K4510's sidebar scenes (its layer builds the library); sidebar=NAME in
 # display.cfg picks one: antfarm matrix space river dreamfall tetris
 # halloween christmas, or none.
-[ -z "$K4510_SIDEBAR_LIB" ] && [ -f "$HOME/k4510/sdl/libk4510side.so" ] && export K4510_SIDEBAR_LIB=$HOME/k4510/sdl/libk4510side.so
+# the K4532's scenes (its library; ~/k4510/sdl/libk4510side.so before the names pass, 2026-10-12)
+for l in "$HOME/k4532/sdl/libk4532side.so" "$HOME/k4510/sdl/libk4510side.so"; do
+    [ -z "$K4510_SIDEBAR_LIB" ] && [ -f "$l" ] && export K4510_SIDEBAR_LIB=$l
+done
 mkdir -p "$HOME/personalities/sidebar"
 export LD_LIBRARY_PATH=$V/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
 D=$HOME/personalities/$name; mkdir -p "$D"; cd "$D" || exit 1
