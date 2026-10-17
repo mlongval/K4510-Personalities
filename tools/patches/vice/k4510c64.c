@@ -1,10 +1,14 @@
-/* k4510c64.c -- the C64's and the C128's own sidebar (K4532-Personalities,
- * 2026-10-17): on x64sc and x128 with placement=left, the free area beside
- * the picture shows the machine itself instead of a K4532 scene, in its
- * case's colour -- the breadbin's brown beige, the C128's light beige -- and
- * lettered in its own character ROM, whole characters on an 8x8 grid:
+/* k4510c64.c -- the C64's, the C128's and the PET's own sidebar
+ * (K4532-Personalities, 2026-10-17): on x64sc, x128 and xpet with
+ * placement=left, the free area beside the picture shows the machine itself
+ * instead of a K4532 scene, in its case's colour -- the breadbin's brown
+ * beige, the C128's light beige; the PET's in its screen's own two colours,
+ * read from the palette each frame, so a palette chosen in F12 (green, amber,
+ * white) is followed -- and lettered in its own character ROM, whole
+ * characters on an 8x8 grid:
  *
- *   the drive      a drawing of the 1541 (the C128: the 1571): its red LED
+ *   the drive      a drawing of the 1541 (the C128: the 1571, the PET: its
+ *                  Drive8Type, the 2031 at first): its LED
  *                  lit while it works, the head's track, the lever down when
  *                  a disk is in
  *   the directory  as LOAD"$",8 lists it; click a program: it is loaded
@@ -13,8 +17,10 @@
  *                  directory) and its folders; click one: it goes in drive 8
  *                  (a .PRG, .T64 or .CRT runs at once); EJECT takes it out
  *   SD #9          the SD volume (a folder, VICE's filesystem device, as an
- *                  SD2IEC is); BROWSE runs Dir Browser (DB64 / DB128) on it
- *   KEYS           the machine's keys on the PC's (-keymap 0, sdl_sym.vkm)
+ *                  SD2IEC is); BROWSE runs Dir Browser (DB64 / DB128) on it;
+ *                  not on the PET
+ *   KEYS           the machine's keys on the PC's (-keymap 0, sdl_sym.vkm;
+ *                  the PET's by position, sdl_grus_pos.vkm)
  *
  * On the C128 the screen it is not showing (the VDC or the VIC-II) is drawn
  * along the bottom of the sidebar, below this (video_sdl2.c, c64panel.py).
@@ -37,13 +43,15 @@
 #include "imagecontents.h"
 #include "diskcontents.h"
 
-extern uint8_t mem_chargen_rom[] __attribute__((weak));   /* the C64s and the C128 have it; not every VICE program */
+extern uint8_t mem_chargen_rom[] __attribute__((weak));   /* the C64s, the C128 and the PET have it; not every VICE program */
+static int c64p_stride = 8;                      /* a character's bytes in it: the PET's are 16 apart (petrom.c) */
 
 /* the machine: its case, its lettering, its drive, its keys */
 typedef struct {
     const char *title, *drive, *browser;
     uint32_t bg, shade, light, text, dim, folder;   /* the case, its shadow and edge, the keys' lettering, a quieter one, a folder */
     uint32_t dbody, dshade;                         /* the drive's case */
+    uint32_t power, led, ledoff;                    /* its lights */
     int rainbow, wide;                              /* the C64 badge's stripes; the 1571's wider front */
     const char *const (*keys)[2];
 } c64p_theme_t;
@@ -57,15 +65,24 @@ static const char *const c64p_keys128[][2] = {
     { "F9", "ESC" }, { "F11", "ALT" }, { "END", "HELP" }, { "PGDN", "LINE FEED" },
     { "HOME", "CLR/HOME" }, { "KEYPAD /", "40/80" }, { "KEYPAD *", "NO SCROLL" },
     { "\\", "`" }, { "~", "~" }, { "F12", "VICE'S MENU" }, { NULL, NULL } };
+static const char *const c64p_keyspet[][2] = {     /* the graphics keyboard by position (sdl_grus_pos.vkm) */
+    { "ESC", "RUN/STOP" }, { "HOME", "CLR/HOME" }, { "CAPS", "SHIFT LOCK" },
+    { "1 TO 0", "!\"#$%'&\\()" }, { "-", "~" }, { "`", "@" }, { "=", "[" }, { "BACKSPACE", "]" },
+    { "[", "^" }, { "]", "<" }, { "\\", ">" }, { ";", ":" }, { ".", ";" },
+    { "END PGUP", "- /" }, { "PGDN", "*" }, { "DIGITS", "THE KEYPAD" }, { "F12", "VICE'S MENU" }, { NULL, NULL } };
 
 static const c64p_theme_t c64p_c64 = {
     " COMMODORE 64 ", "1541 #8", "DB64",
     0xa89c86, 0x8a7f6c, 0xbcb19b, 0x3a2f28, 0x6b5e50, 0x7a3b26,
-    0xb3a891, 0x7e7363, 1, 0, c64p_keys64 };
+    0xb3a891, 0x7e7363, 0x3fbf3f, 0xff3020, 0x5a2018, 1, 0, c64p_keys64 };
 static const c64p_theme_t c64p_c128 = {
     " COMMODORE 128 ", "1571 #8", "DB128",
     0xd8d0bc, 0xb8af9b, 0xe8e2d2, 0x3e3833, 0x7a7268, 0x6e3a2a,
-    0xe4ddcb, 0xa69d89, 0, 1, c64p_keys128 };
+    0xe4ddcb, 0xa69d89, 0x3fbf3f, 0xff3020, 0x5a2018, 0, 1, c64p_keys128 };
+static c64p_theme_t c64p_pet = {                /* its colours: the screen's (c64p_pet_colours) */
+    " COMMODORE PET ", NULL, NULL,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, c64p_keyspet };
+static char c64p_petdrive[16];
 static const c64p_theme_t *c64p_t = &c64p_c64;
 
 static int c64p_on = -1;
@@ -114,14 +131,58 @@ k4510c64_active(void)
     if (c64p_on < 0) {
         const char *e = getenv("K4510_C64_PANEL"), *sd = getenv("K4510_SD");
         int c64 = machine_class == VICE_MACHINE_C64SC || machine_class == VICE_MACHINE_C64;
-        c64p_on = (c64 || machine_class == VICE_MACHINE_C128) && mem_chargen_rom && !(e && !strcmp(e, "0"));
-        c64p_t = c64 ? &c64p_c64 : &c64p_c128;
+        int pet = machine_class == VICE_MACHINE_PET;
+        c64p_on = (c64 || pet || machine_class == VICE_MACHINE_C128) && mem_chargen_rom && !(e && !strcmp(e, "0"));
+        c64p_t = c64 ? &c64p_c64 : pet ? &c64p_pet : &c64p_c128;
+        c64p_stride = pet ? 16 : 8;
         if (c64p_on && getcwd(c64p_root, sizeof c64p_root)) {
             snprintf(c64p_cwd, sizeof c64p_cwd, "%s", c64p_root);
         }
         snprintf(c64p_sd, sizeof c64p_sd, "%s", sd ? sd : "");
     }
     return c64p_on;
+}
+
+/* the PET: the screen's background and phosphor, from the palette VICE draws
+ * with now, and the shades between them; its drive, whatever Drive8Type is */
+static uint32_t
+c64p_mix(uint32_t a, uint32_t b, int t)          /* t/256 of the way from a to b */
+{
+    uint32_t c = 0;
+    int i;
+    for (i = 0; i < 24; i += 8) {
+        int x = (int)((a >> i) & 255), y = (int)((b >> i) & 255);
+        c |= (uint32_t)(x + (y - x) * t / 256) << i;
+    }
+    return c;
+}
+static void
+c64p_pet_colours(struct video_canvas_s *canvas)
+{
+    uint32_t bg = 0x000000, fg = 0x41ff00;
+    int type = 0;
+    if (canvas && canvas->palette && canvas->palette->num_entries >= 2) {
+        const palette_entry_t *p = canvas->palette->entries;
+        bg = ((uint32_t)p[0].red << 16) | ((uint32_t)p[0].green << 8) | p[0].blue;
+        fg = ((uint32_t)p[1].red << 16) | ((uint32_t)p[1].green << 8) | p[1].blue;
+    }
+    if (bg != c64p_pet.bg || fg != c64p_pet.text || !c64p_pet.drive) log_message(LOG_DEFAULT, "k4510c64: the PET's colours %06x on %06x", fg, bg);
+    c64p_pet.bg = bg;
+    c64p_pet.text = fg;
+    c64p_pet.dim = c64p_mix(bg, fg, 150);
+    c64p_pet.shade = c64p_mix(bg, fg, 70);
+    c64p_pet.light = c64p_mix(bg, fg, 110);
+    c64p_pet.folder = c64p_mix(bg, fg, 200);
+    c64p_pet.dbody = c64p_mix(bg, fg, 45);
+    c64p_pet.dshade = c64p_mix(bg, fg, 25);
+    c64p_pet.power = fg;
+    c64p_pet.led = fg;
+    c64p_pet.ledoff = c64p_mix(bg, fg, 60);
+    resources_get_int("Drive8Type", &type);
+    snprintf(c64p_petdrive, sizeof c64p_petdrive, type ? "%d #8" : "NO DRIVE 8", type);
+    c64p_pet.drive = c64p_petdrive;
+    c64p_pet.wide = type == DRIVE_TYPE_2040 || type == DRIVE_TYPE_3040 || type == DRIVE_TYPE_4040
+                 || type == DRIVE_TYPE_8050 || type == DRIVE_TYPE_8250;   /* the two-drive cases */
 }
 
 /* ---- drawing, in machine pixels --------------------------------------------- */
@@ -142,7 +203,7 @@ c64p_fill(int x, int y, int w, int h, uint32_t c)
 static void
 c64p_char(int x, int y, uint8_t sc, uint32_t fg, uint32_t bg)   /* screen code sc (128-255: reversed, as the ROM has them) */
 {
-    const uint8_t *g = mem_chargen_rom + sc * 8;
+    const uint8_t *g = mem_chargen_rom + sc * c64p_stride;
     int i, j;
     if (x < 0 || y < 0 || x + 8 > c64p_w || y + 8 > c64p_h) return;
     fg |= 0xff000000u; bg |= 0xff000000u;
@@ -226,8 +287,8 @@ c64p_drive(int x, int y)                          /* the 1541's front, 112 x 40 
         if (in) c64p_fill(x + 92, y + 6, 8, 16, c64p_t->text);
         else c64p_fill(x + 86, y + 10, 18, 8, c64p_t->text);
     }
-    c64p_fill(x + 8, y + 31, 7, 3, 0x3fbf3f);      /* power, green */
-    c64p_fill(x + 18, y + 31, 7, 3, led ? 0xff3020 : 0x5a2018);   /* drive, red while it works */
+    c64p_fill(x + 8, y + 31, 7, 3, c64p_t->power);      /* power, green */
+    c64p_fill(x + 18, y + 31, 7, 3, led ? c64p_t->led : c64p_t->ledoff);   /* drive, red while it works */
     c64p_fill(x + 82, y + 30, 22, 5, c64p_t->dshade);   /* the badge */
 }
 static void
@@ -235,12 +296,15 @@ c64p_track(int col, int row)
 {
     drive_t *d = diskunit_context[0] ? diskunit_context[0]->drives[0] : NULL;
     char b[24];
-    int ht = d ? d->current_half_track : 36, x = col * 8, y = row * 8 + 2, i;
+    int ht = d ? d->current_half_track : 36, x = col * 8, y = row * 8 + 2, i, type = 0, n = 35;
+    resources_get_int("Drive8Type", &type);
+    if (type == DRIVE_TYPE_8050 || type == DRIVE_TYPE_8250 || type == DRIVE_TYPE_1001) n = 77;   /* the PET's big drives */
     snprintf(b, sizeof b, "TRACK %2d%s", ht / 2, ht & 1 ? "+" : " ");
     c64p_text(col, row - 1, b, c64p_t->text, c64p_t->bg, 0);
-    c64p_fill(x, y, 72, 4, c64p_t->shade);              /* 35 tracks, two pixels each */
-    for (i = 0; i < 35; i += 5) c64p_fill(x + 1 + i * 2, y + 4, 1, 2, c64p_t->shade);
-    c64p_fill(x + (ht - 2), y - 1, 2, 6, c64p_t->text);   /* the head */
+    c64p_fill(x, y, 72, 4, c64p_t->shade);              /* 35 tracks, two pixels each (77: as many as fit) */
+    for (i = 0; i < n; i += 5) c64p_fill(x + 1 + i * 70 / n, y + 4, 1, 2, c64p_t->shade);
+    if (ht > 2 * n) ht = 2 * n;
+    c64p_fill(x + (ht - 2) * 35 / n, y - 1, 2, 6, c64p_t->text);   /* the head */
 }
 
 /* ---- the directory ------------------------------------------------------------ */
@@ -310,7 +374,7 @@ c64p_ext(const char *n, const char *const *list)
     for (; *list; list++) if (!strcasecmp(e, *list)) return 1;
     return 0;
 }
-static const char *const c64p_disks[] = { ".d64", ".d71", ".d81", ".g64", ".x64", NULL };
+static const char *const c64p_disks[] = { ".d64", ".d71", ".d81", ".g64", ".x64", ".d80", ".d82", ".d67", NULL };
 static const char *const c64p_runs[] = { ".prg", ".t64", ".crt", ".p00", NULL };
 static int
 c64p_cmp(const void *a, const void *b)
@@ -353,7 +417,9 @@ c64p_attach(const char *path)                     /* in drive 8, the drive made 
     if (file_system_attach_disk(8, 0, path) < 0) return;
     di = file_system_get_image(8, 0);
     if (di && drive_check_image_format(di->type, 0) < 0) {
-        resources_set_int("Drive8Type", drive_image_type_to_drive_type(di->type));
+        int t = drive_image_type_to_drive_type(di->type);
+        if (machine_class == VICE_MACHINE_PET && t == DRIVE_TYPE_1541II) t = DRIVE_TYPE_2031;   /* a .D64 on the PET's bus */
+        resources_set_int("Drive8Type", t);
         file_system_detach_disk(8, 0);
         file_system_attach_disk(8, 0, path);
     }
@@ -433,7 +499,7 @@ c64p_render(uint32_t ms)
     c64p_track(16, 6);
     /* the SD volume, drive 9 */
     r = 9;
-    if (c64p_sd[0]) {
+    if (c64p_sd[0] && c64p_t->browser) {
         c64p_text(1, r, "SD #9", c64p_t->text, c64p_t->bg, 0);
         c64p_button(7, r, " BROWSE ", H_BROWSE);
         r += 2;
@@ -517,7 +583,8 @@ c64p_render(uint32_t ms)
         int j;
         for (j = 0; j < 13; j++)
             for (i = 0; i < 10; i++)
-                if (arrow[j][i] != '.') c64p_fill(c64p_mx + i, c64p_my + j, 1, 1, arrow[j][i] == 'W' ? 0xffffff : 0x000000);
+                if (arrow[j][i] != '.') c64p_fill(c64p_mx + i, c64p_my + j, 1, 1, c64p_t == &c64p_pet ? (arrow[j][i] == 'W' ? c64p_t->text : c64p_t->bg)
+                                                                                     : arrow[j][i] == 'W' ? 0xffffff : 0x000000);
     }
 }
 
@@ -544,6 +611,7 @@ k4510c64_draw(struct video_canvas_s *canvas, SDL_Renderer *r, SDL_Rect area)
     c64p_area.x = area.x + (area.w - w * k) / 2; c64p_area.y = area.y;
     c64p_area.w = w * k; c64p_area.h = h * k;
     if (ms - c64p_last_ms >= 33) {
+        if (c64p_t == &c64p_pet) c64p_pet_colours(canvas);
         c64p_render(ms);
         c64p_last_ms = ms;
         fresh = 1;
@@ -562,7 +630,6 @@ k4510c64_draw(struct video_canvas_s *canvas, SDL_Renderer *r, SDL_Rect area)
         SDL_RenderFillRect(r, &area);
     }
     SDL_RenderCopy(r, c64p_tex, NULL, &c64p_area);
-    (void)canvas;
 }
 
 /* ui.c's event loop: the mouse over the sidebar is the sidebar's (1: taken) */

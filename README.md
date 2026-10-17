@@ -44,7 +44,7 @@ K4532's scenes (`~/k4532/sdl/libk4532side.so`, dlopened via
 `tools/patches/common/k4510host.c`): none antfarm matrix space river
 dreamfall tetris halloween christmas.
 
-**C64 and C128**, placement left: the sidebar is the machine's own panel
+**C64, C128 and PET**, placement left: the sidebar is the machine's own panel
 instead of a K4532 scene (`tools/patches/vice/k4510c64.c`), in its case's
 colour -- the breadbin's brown beige, the C128's light beige -- and lettered
 in its own character ROM: a 1541 (the C128: a 1571) whose red LED lights while
@@ -56,6 +56,11 @@ program in the directory to load and run it, DISKS for the disks in
 or .CRT runs at once), EJECT to take the disk out, BROWSE for Dir Browser on
 the SD volume; the wheel scrolls.  On the C128 the screen it is not showing
 (VDC or VIC-II) is along the bottom of the sidebar, the panel above it.
+The **PET** has the same panel in its screen's own two colours, read from
+VICE's palette as it draws, so a palette chosen in F12 (green, amber, white)
+recolours it at once; its drive is whatever Drive8Type is (a 2031 at first; a
+.D64 goes in a 2031, a .D80 in an 8050), its keys the graphics keyboard by
+position, and no SD row.
 `K4510_C64_PANEL=0` gives the scene back.  `tools/test-c64panel.sh` clicks
 through it under Xvfb (xdotool) and reads VICE's log.
 
