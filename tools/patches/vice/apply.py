@@ -8,7 +8,8 @@
 #                         the VDC's borders cropped off (K4510_VDC_CROP=0: kept)
 # and in src/vdc/vdc.c the area the VDC displayed, for that crop; in
 # src/arch/sdl/menu_video.c the 40/80 key and VDC borders on/off (saved as
-# vdcborders= in K4510_DISPLAY_CFG) in the C128's Video menu.
+# vdcborders= in K4510_DISPLAY_CFG) in the C128's Video menu; and c64panel.py:
+# the C64's own sidebar (k4510c64.c), drive 8 and its disks, by the mouse.
 # Unset: VICE as it was.
 import os, shutil, sys
 here = os.path.dirname(os.path.abspath(__file__))
@@ -357,3 +358,4 @@ edit("        .data     = (ui_callback_data_t)VIDEO_OUTPUT_DUAL_WINDOW\n    },\n
      "    SDL_MENU_ITEM_SEPARATOR,\n")
 open(P, "w").write(s)
 print("vice/apply.py: placement, sidebar, C128 dual display, VDC crop, 40/80 key in")
+exec(open(os.path.join(here, "c64panel.py")).read())

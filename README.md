@@ -44,6 +44,18 @@ K4532's scenes (`~/k4532/sdl/libk4532side.so`, dlopened via
 `tools/patches/common/k4510host.c`): none antfarm matrix space river
 dreamfall tetris halloween christmas.
 
+**C64**, placement left: the sidebar is the C64's own panel instead of a
+K4532 scene (`tools/patches/vice/k4510c64.c`), drawn with the C64's character
+ROM and its 16 colours: a 1541 whose red LED lights while it works and whose
+head moves track by track, the disk's directory as `LOAD"$",8` lists it, and
+the C64's keys on the PC's.  It works with the mouse (it draws its own
+pointer; VICE shows none in fullscreen): click a program in the directory to
+load and run it, DISKS for the disks in `~/personalities/c64` and its folders
+(a disk goes in drive 8; a .PRG, .T64 or .CRT runs at once), EJECT to take
+the disk out; the wheel scrolls.  `K4510_C64_PANEL=0` gives the scene back.
+`tools/test-c64panel.sh` clicks through it under Xvfb (xdotool) and reads
+VICE's log.
+
 **C128**, placement left: the other display lives in the sidebar, live (the
 VDC with its borders cropped off: its 80x25 text area plus 8 pixels, so the
 80-column text is readable), F12 -> Video settings -> VICII/VDC swaps them.
