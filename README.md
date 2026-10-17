@@ -26,6 +26,13 @@ the machine off, as the K4510's do.
 personalities come back to.  Its image, `machine/k4532` and
 `tools/build-k4532.sh` went; their history is in git.
 
+**K4532 vi-ui (experiment)** (`machine/k4532vi`, 2026-10-16): the K4532
+with the programs of K4532's branch `vi-ui` -- one vi-style grammar, Space
+the leader, `:name` with Tab -- to try before it goes into the machine.
+The machine's own emulator, run from `~/personalities/k4532vi` with a copy
+of its disk made the first time; the branch's programs are laid over it at
+every start.  `tools/build-k4532vi.sh && tools/deploy-dell.sh --only k4532vi`.
+
 **Placement** (all three emulators, build-time patches in `tools/patches/`):
 `K4510_PLACEMENT=left|centre`, `K4510_SCALE=fit|integer`, defaults from
 `~/personalities/display.cfg`, shared by all three: `placement=left|centre`,

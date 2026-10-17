@@ -1,0 +1,38 @@
+#!/bin/sh
+# Start the K4532 vi-ui personality: this is run/k4532vi (Doc, 2026-10-16:
+# "deploy it as a supplemental personality that can be selected").  The
+# K4532 itself, with the programs of K4532's branch vi-ui -- one vi-style
+# grammar: Space the leader, :name with Tab, EDIT starting in insert --
+# to try before deciding whether it goes into the machine.
+#
+# The same emulator as the machine's (~/k4532/sdl/k4532: the branch changes
+# programs, not the emulator), run from a directory of its own,
+# ~/personalities/k4532vi, that looks like ~/k4532:
+#   fs/            its own disk: a copy of the machine's, made the first
+#                  time, then the branch's programs laid over it at every
+#                  start (from the image's fs/).  Your files here are this
+#                  personality's; the machine's own disk is not touched.
+#   k4532.cfg      its settings, the machine's the first time
+#   k4532-menu.cfg
+#   the rest       links into ~/k4532 (data, the Tube, tools, sdl ...)
+#
+# Quitting: F12 > Power > Other machine (the Chooser), as the others.
+X=/opt/personalities/k4532vi
+K=$HOME/k4532
+D=$HOME/personalities/k4532vi
+[ -x "$K/sdl/k4532" ] || { echo "k4532vi: no machine at $K" >&2; exit 1; }
+mkdir -p "$D" "$D/shots" || exit 1
+for e in "$K"/*; do
+    b=${e##*/}
+    case $b in fs|k4532.cfg|k4532-menu.cfg|k4532-slot*|k4532-resume*|shots|DIAG|KEYS) continue ;; esac
+    { [ -L "$D/$b" ] || [ ! -e "$D/$b" ]; } && ln -sfn "$e" "$D/$b"
+done
+[ -d "$D/fs" ] || cp -a "$K/fs" "$D/fs"
+(cd "$X/fs" && find . -type f) | while read -r p; do
+    mkdir -p "$D/fs/${p%/*}" && cp "$X/fs/$p" "$D/fs/$p"
+done
+for c in k4532.cfg k4532-menu.cfg; do
+    [ -f "$D/$c" ] || [ ! -f "$K/$c" ] || cp "$K/$c" "$D/$c"
+done
+cd "$D" || exit 1
+exec ./sdl/k4532 "$@"
