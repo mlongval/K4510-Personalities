@@ -11,8 +11,8 @@ Pi bare-metal glue around VICE 3.3; upstream VICE's SDL UI is the better fit.)
 
 | Personality | Emulator | Image |
 |---|---|---|
-| c64 (+512K REU), c128, pet (4032, 40 columns) | VICE 3.10, SDL2 UI (x64sc, x128, xpet) | `vice.squashfs` ~5 MB |
-| a1200 (KS 3.1, WB 3.1 on DH0; the A500 went 2026-10-12) | Amiberry 8.3.0, SDL3, no OpenGL | `amiga.squashfs` ~18 MB |
+| c64, c128 (+16 MB REU, SD volume on drive 9), pet (4032, 40 columns) | VICE 3.10, SDL2 UI (x64sc, x128, xpet) | `vice.squashfs` ~5 MB |
+| a1200 (KS 3.1, WB 3.1 on DH0, Work 20 MB on DH1; the A500 went 2026-10-12) | Amiberry 8.3.0, SDL3, no OpenGL | `amiga.squashfs` ~18 MB |
 | x16 (Commander X16, ROM r49; drive 8 = `~/personalities/x16`) | x16emu r49, SDL2 | `x16.squashfs` ~0.2 MB |
 
 Quitting back to the K4510: VICE and Amiberry F12 -> Quit; the X16 F12 ->
@@ -44,25 +44,52 @@ K4532's scenes (`~/k4532/sdl/libk4532side.so`, dlopened via
 `tools/patches/common/k4510host.c`): none antfarm matrix space river
 dreamfall tetris halloween christmas.
 
-**C64**, placement left: the sidebar is the C64's own panel instead of a
-K4532 scene (`tools/patches/vice/k4510c64.c`), drawn with the C64's character
-ROM and its 16 colours: a 1541 whose red LED lights while it works and whose
-head moves track by track, the disk's directory as `LOAD"$",8` lists it, and
-the C64's keys on the PC's.  It works with the mouse (it draws its own
-pointer; VICE shows none in fullscreen): click a program in the directory to
-load and run it, DISKS for the disks in `~/personalities/c64` and its folders
-(a disk goes in drive 8; a .PRG, .T64 or .CRT runs at once), EJECT to take
-the disk out; the wheel scrolls.  `K4510_C64_PANEL=0` gives the scene back.
-`tools/test-c64panel.sh` clicks through it under Xvfb (xdotool) and reads
-VICE's log.
+**C64 and C128**, placement left: the sidebar is the machine's own panel
+instead of a K4532 scene (`tools/patches/vice/k4510c64.c`), in its case's
+colour -- the breadbin's brown beige, the C128's light beige -- and lettered
+in its own character ROM: a 1541 (the C128: a 1571) whose red LED lights while
+it works and whose head moves track by track, the disk's directory as
+`LOAD"$",8` lists it, the SD volume, and the keys on the PC's.  It works with
+the mouse (it draws its own pointer; VICE shows none in fullscreen): click a
+program in the directory to load and run it, DISKS for the disks in
+`~/personalities/<name>` and its folders (a disk goes in drive 8; a .PRG, .T64
+or .CRT runs at once), EJECT to take the disk out, BROWSE for Dir Browser on
+the SD volume; the wheel scrolls.  On the C128 the screen it is not showing
+(VDC or VIC-II) is along the bottom of the sidebar, the panel above it.
+`K4510_C64_PANEL=0` gives the scene back.  `tools/test-c64panel.sh` clicks
+through it under Xvfb (xdotool) and reads VICE's log.
 
-**C128**, placement left: the other display lives in the sidebar, live (the
+Both machines (run/vice): the keyboard by symbol (`-keymap 0`: a PC key types
+what is printed on it; the PET stays positional), a 16 MB REU (VICE's
+largest), and drive 9 an **SD volume**: the folder `~/personalities/SD`,
+shared, as VICE's filesystem device (which takes SD2IEC's `CD` commands), with
+[Dir Browser](https://graham-it.itch.io/dirbrowser) on it as DB64 and DB128
+(`tools/get-dirbrowser.sh` fetches its VICE builds; its terms do not allow
+redistribution, so it is never in this repository, only in the image built
+here).  The C64 powers on white on dark blue: the stock KERNAL with three
+bytes changed (`make-images.sh`, kernal-k4532.bin).
+
+**Amiga 1200**, placement left: the sidebar is the A1200's own panel
+(`tools/patches/amiberry/k4510amiga.c`), in its off-white and lettered in
+Topaz 8 taken from the Kickstart (`tools/topaz.py`): the power, floppy and
+hard-drive LEDs, the disk in DF0: with its track, DH0: and DH1:, how the
+touchpad clicks, and the Amiga's keys on the PC's.  It only shows (the mouse
+is the Amiga's).  DH1: is **Work, a 20 MB hardfile** (FFS, made by
+`tools/make-amiga-hd.sh` with amitools; copied to the machine only if none is
+there; run/amiga adds it to a configuration written before it).  The
+**touchpad** works as the mouse (`tools/patches/amiberry/touchpad.py`): on
+the bare console SDL3 reports it as fingers, which Amiberry used only for a
+finger id SDL3 never gives; now a finger moves the pointer, a tap clicks, two
+fingers tap the right button, and a tap then a held finger drags.
+
+**C128**, placement left: the other display lives along the bottom of the
+sidebar, below its panel, live (the
 VDC with its borders cropped off: its 80x25 text area plus 8 pixels, so the
 80-column text is readable), F12 -> Video settings -> VICII/VDC swaps them.
 At power-on the screen the C128 did not start on is blank (black on black)
 until something is printed to it.
-C128 keys on the PC: ESC = F9 (so ESC X = F9 then X, switching the BASIC
-screen), 40/80 DISPLAY = keypad `/`, or F12 -> Video settings -> 40/80 key
+C128 keys on the PC (symbolic, sdl_sym.vkm): Esc = RUN/STOP, F9 = ESC (so
+ESC X = F9 then X, switching the BASIC screen), 40/80 DISPLAY = keypad `/`, or F12 -> Video settings -> 40/80 key
 (latched; the C128 reads it at reset, so down + reset = 80 columns).
 F12 -> Video settings -> VDC borders off: the VDC as the main display shows
 the same cropped text area, scaled up (saved as `vdcborders=off` in

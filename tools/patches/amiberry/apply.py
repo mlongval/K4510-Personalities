@@ -4,7 +4,9 @@
 #                         right of the screen free; K4510_SCALE=integer: whole
 #                         multiples.  Native chipset screens only (not RTG).
 #   the sidebar           the K4510's scene in that free area
-#                         (libk4510side.so via k4510host.c)
+#                         (libk4510side.so via k4510host.c), or the A1200's
+#                         own (k4510amiga.c: its LEDs, drives, keys)
+# and touchpad.py: a touchpad on the bare console works as the mouse.
 # SDL3 draws a logical presentation through a texture of its own and lays it
 # over the window at present, so the presentation is set aside from our copy
 # until the frame has been presented, and given back after.
@@ -13,6 +15,7 @@ import os, shutil, sys
 here = os.path.dirname(os.path.abspath(__file__))
 for f in ("k4510host.c", "k4510host.h"):
     shutil.copy(os.path.join(here, "..", "common", f), "src/osdep/" + f)
+shutil.copy(os.path.join(here, "k4510amiga.c"), "src/osdep/k4510amiga.c")
 P = "src/osdep/sdl_renderer.cpp"
 s = open(P).read()
 def edit(old, new, count=1):
@@ -36,8 +39,11 @@ static SDL_Texture* k4510_side_tex = nullptr;
 static SDL_Renderer* k4510_side_ren = nullptr;
 static int k4510_side_w = 0, k4510_side_h = 0;
 
+static int k4510amiga_draw(SDL_Renderer* r, int ax, int W, int H);   // the A1200's own (k4510amiga.c, at the end)
+
 static void k4510_sidebar(SDL_Renderer* r, int ax, int W, int H)
 {
+    if (k4510amiga_draw(r, ax, W, H)) return;
     uint32_t* px;
     int w, h, k, fresh;
     if (!k4510host_frame(W - ax, H, &px, &w, &h, &k, &fresh)) return;
@@ -103,5 +109,7 @@ edit("\tSDL_RenderPresent(mon->amiga_renderer);\n\tif (m_vsync.waitvblankthread_
      "\t\tk4510_restore = 0;\n"
      "\t}\n"
      "\tif (m_vsync.waitvblankthread_mode <= 0)")
+s += "\n// K4510: the A1200's own sidebar\n#include \"k4510amiga.c\"\n"
 open(P, "w").write(s)
 print("amiberry/apply.py: placement, sidebar in")
+exec(open(os.path.join(here, "touchpad.py")).read())

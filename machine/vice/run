@@ -27,11 +27,22 @@ mkdir -p "$HOME/personalities/sidebar"
 export LD_LIBRARY_PATH=$V/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
 D=$HOME/personalities/$name; mkdir -p "$D"; cd "$D" || exit 1
 # Fullscreen on the KMS display, sound through ALSA (mixed by dmix like the
-# K4510's), and the C64 keyboard laid out by position, not by symbol.
-common="-sounddev alsa -keymap 1"
+# K4510's), and the keyboard by symbol: a PC key types what is printed on it
+# (Doc, 2026-10-17; -keymap 1 laid the C64's out by position until then).
+common="-sounddev alsa -keymap 0"
+# The REU, 16 MB (VICE's largest; Doc asked for 64): PETSCII Robots' REU
+# edition and GEOS use it, and it is harmless to the rest.
+reu="-reu -reusize 16384"
+# The SD volume: drive 9 is a folder, ~/personalities/SD, shared by the C64
+# and the C128 -- VICE's filesystem device, which takes SD2IEC's CD commands
+# -- with Dir Browser on it (DB64, DB128; the sidebar's BROWSE runs it).
+SD=$HOME/personalities/SD; mkdir -p "$SD"
+for f in DB64 DB128; do [ -f "$SD/$f" ] || [ ! -f "$V/share/dirbrowser/$f" ] || cp "$V/share/dirbrowser/$f" "$SD/$f"; done
+export K4510_SD=$SD
+sd="-drive9type 0 -busdevice9 -devicebackend9 1 -fs9 $SD"
 case "$name" in
-c64)  exec $V/bin/x64sc $common -VICIIfull -reu -reusize 512 "$@" ;;   # the REU: PETSCII Robots REU edition (128K+), and harmless to the rest
-c128) exec $V/bin/x128  $common -VICIIfull -VDCfull "$@" ;;
-pet)  exec $V/bin/xpet  $common -model 4032 -CRTCfull "$@" ;;   # 40 columns, 32K: what most PET games (PETSCII Robots) want
+c64)  exec $V/bin/x64sc $common -VICIIfull $reu $sd -kernal kernal-k4532.bin "$@" ;;   # the KERNAL's power-on colours: white on dark blue (make-images.sh)
+c128) exec $V/bin/x128  $common -VICIIfull -VDCfull $reu $sd "$@" ;;
+pet)  exec $V/bin/xpet  $common -keymap 1 -model 4032 -CRTCfull "$@" ;;   # 40 columns, 32K: what most PET games (PETSCII Robots) want
 *)    echo "vice: no personality called $name"; exit 1 ;;
 esac

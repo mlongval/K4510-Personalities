@@ -7,6 +7,7 @@
 #               config, or edit it)
 #   floppies/   ADFs: the Workbench disks, games -- F12 -> Floppy drives
 #   DH0/        the A1200's hard drive, a directory with Workbench 3.1 on it
+#   Work.hdf    DH1:, Work, a 20 MB hardfile (FFS)
 A=/opt/personalities/amiga
 name=$(basename "$0")
 # The placement every personality shares: ~/personalities/display.cfg,
@@ -29,6 +30,15 @@ mkdir -p "$HOME/personalities/sidebar"
 export LD_LIBRARY_PATH=$A/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
 D=$HOME/personalities/$name; mkdir -p "$D/floppies"; cd "$D" || exit 1
 [ -f "$D/$name.uae" ] || sed "s|@HOME@|$D|g; s|@IMG@|$A|g" "$A/conf/$name.uae" > "$D/$name.uae"
+# DH1:, Work, 20 MB (tools/make-amiga-hd.sh), into a configuration written
+# before it existed
+if [ -f "$D/Work.hdf" ] && ! grep -q "^hardfile2=.*DH1:" "$D/$name.uae"; then
+    echo "hardfile2=rw,DH1:$D/Work.hdf,32,1,2,512,-128," >> "$D/$name.uae"
+fi
+# The sidebar: the A1200's own, lettered in Topaz from the Kickstart
+# (K4510_AMIGA_PANEL=0: the K4532 scene); the touchpad as the mouse, by
+# Amiberry's finger code (touchpad.py), not SDL's own mouse made of fingers.
+export K4510_TOPAZ=$A/topaz.bin SDL_TOUCH_MOUSE_EVENTS=0
 # Amiberry's own files (amiberry.conf, logs, savestates) beside the rest
 export XDG_CONFIG_HOME=$D/.config XDG_DATA_HOME=$D/.local
 exec $A/bin/amiberry --config "$D/$name.uae" -G "$@"

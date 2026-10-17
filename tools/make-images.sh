@@ -45,6 +45,21 @@ mkdir -p $V/bin $V/share/vice $V/lib $V/run
 cp $S/bin/x64sc $S/bin/x128 $S/bin/xpet $S/bin/c1541 $S/bin/petcat $V/bin/
 for d in C64 C128 PET DRIVES PRINTER common hotkeys; do [ -d $S/share/vice/$d ] && cp -a $S/share/vice/$d $V/share/vice/; done
 cp "$HERE/machine/vice/run" $V/run/vice; cp "$HERE/machine/vice/list" $V/list
+# The C64's power-on screen white on dark blue (Doc, 2026-10-17): the stock
+# KERNAL with three bytes changed -- LDA #$0E at $E534 (the text colour)
+# becomes #$01, and VIC-II's start values at $ECD9/$ECDA (border, screen)
+# both $06.  run/vice starts x64sc with -kernal kernal-k4532.bin.
+python3 - $V/share/vice/C64/kernal-901227-03.bin $V/share/vice/C64/kernal-k4532.bin <<'PATCH'
+import sys
+k = bytearray(open(sys.argv[1], 'rb').read())
+assert k[0x534:0x539] == bytes.fromhex('a90e8d8602') and k[0xcd9:0xcdb] == bytes.fromhex('0e06'), 'not the 901227-03 KERNAL'
+k[0x535] = 0x01; k[0xcd9] = 0x06; k[0xcda] = 0x06
+open(sys.argv[2], 'wb').write(k)
+PATCH
+# Dir Browser for the SD volume (tools/get-dirbrowser.sh; not redistributable, so
+# only in this image, made here, never in the repository)
+if [ -f $W/dirbrowser/DB64 ]; then mkdir -p $V/share/dirbrowser && cp $W/dirbrowser/DB64 $W/dirbrowser/DB128 $W/dirbrowser/README.md $V/share/dirbrowser/
+else echo "make-images: no Dir Browser (tools/get-dirbrowser.sh): the SD volume will have none"; fi
 fi
 
 # --- amiga
@@ -54,6 +69,10 @@ mkdir -p $A/kickstarts $A/run $A/conf
 cp -a $S/bin $S/lib $S/share $A/
 cp "$KS31" $A/kickstarts/kick31-a1200.rom          # (the A500 went, 2026-10-12: FEATURES O6)
 cp "$HERE/machine/amiga/run" $A/run/amiga; cp "$HERE/machine/amiga/conf/"*.uae $A/conf/
+# the A1200's sidebar letters in its own Topaz 8, out of this Kickstart (tools/topaz.py)
+python3 "$HERE/tools/topaz.py" "$KS31" $A/topaz.bin
+# DH1:, Work, 20 MB (tools/make-amiga-hd.sh; into work/out/home, kept on the machine once there)
+"$HERE/tools/make-amiga-hd.sh" >/dev/null
 cp "$HERE/machine/amiga/list" $A/list
 fi
 

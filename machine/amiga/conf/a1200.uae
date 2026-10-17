@@ -7,4 +7,5 @@ kickstart_rom_file=@IMG@/kickstarts/kick31-a1200.rom
 fastmem_size=8
 nr_floppies=1
 filesystem2=rw,DH0:Workbench:@HOME@/DH0,0
+hardfile2=rw,DH1:@HOME@/Work.hdf,32,1,2,512,-128,
 gfx_fullscreen_amiga=fullwindow
