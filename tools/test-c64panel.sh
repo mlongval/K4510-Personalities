@@ -80,20 +80,49 @@ for i in 1 2 3 4 5 6 7 8 9 10 11 12; do grep -q "k4510c64: the panel" ~/logpet &
 set -- $(sed -n "s/.*k4510c64: the panel at \([0-9]*\),\([0-9]*\), \([0-9]*\)x\([0-9]*\) machine pixels x\([0-9]*\).*/\1 \2 \3 \4 \5/p" ~/logpet | tail -1)
 [ -n "$5" ] || { cat ~/logpet; echo "test-c64panel: FAILED: no PET panel"; exit 1; }
 X=$1 Y=$2 K=$5 rows=$(($4 / 8))
+[ "$K" -ge 2 ] || { echo "test-c64panel: FAILED: the PET panel at x1, too small to read"; exit 1; }
 grep "k4510c64: the PET" ~/logpet
 first=$(grep -c "k4510c64: the PET.s colours" ~/logpet)
 [ "$first" -ge 1 ] || { cat ~/logpet; echo "test-c64panel: FAILED: the PET panel did not read the screen colours"; exit 1; }
-B=$((rows - 20))                                      # DISKS: above the 17 keys
+B=$((rows - 12))                                      # DISKS: above the 9 keys
 at 2 $B                                               # DISKS
 at 2 10                                               # TEST.D64
 grep -q "k4510c64: drive 8: /home/k4510/personalities/pet/TEST.D64" ~/logpet || { cat ~/logpet; echo "test-c64panel: FAILED: the PET disk"; exit 1; }
-python3 -c "
-import socket,time
-s=socket.create_connection((\"127.0.0.1\",6510)); time.sleep(0.5)
-for c in (b\"resourceset \\\"CrtcPaletteFile\\\" \\\"amber\\\"\\n\", b\"resourceset \\\"CrtcExternalPalette\\\" \\\"1\\\"\\n\", b\"x\\n\"):
+# the palette changed while it runs (as F12 changes it: the resources, here
+# by the remote monitor), then the PET by symbol too: "." is "." (VICE 3.10
+# sent it to ";"), shifted 9 and 0 are brackets -- typed on the PC keyboard,
+# read from the screen.  One monitor connection: VICE takes no second.
+grep -q "sdl_grus_sym.vkm" ~/logpet || { grep -i vkm ~/logpet; echo "test-c64panel: FAILED: the PET not on the symbolic keymap"; exit 1; }
+cat >~/mon.py <<EOF
+import os, socket, sys, time
+s = socket.create_connection(("127.0.0.1", 6510)); time.sleep(0.5)
+for c in (b"resourceset \"CrtcPaletteFile\" \"amber\"\n", b"resourceset \"CrtcExternalPalette\" \"1\"\n", b"x\n"):
     s.sendall(c); time.sleep(0.5)
-"
-sleep 2; grep "k4510c64: the PET" ~/logpet
+time.sleep(2)
+# each key held 60 ms, as a hand would: the PET scans its keyboard once a frame
+tap = lambda k, sh=False: os.system("xdotool " + ("keydown Shift_L " if sh else "") + "keydown %s sleep 0.06 keyup %s " % (k, k) + ("keyup Shift_L " if sh else "") + "sleep 0.06")
+os.system("xdotool windowfocus $w; sleep 0.3")
+for k in "print": tap(k)
+tap("space"); tap("9", True); tap("1"); tap("period"); tap("5"); tap("0", True); tap("Return"); time.sleep(1)
+s.sendall(b"m 8000 83e7\n"); time.sleep(1); s.settimeout(1); d = b""
+try:
+    while True:
+        c = s.recv(65536)
+        if not c: break
+        d += c
+except OSError: pass
+s.sendall(b"x\n")
+h = bytearray()
+for l in d.decode(errors="replace").splitlines():
+    if ">C:" in l:
+        h += bytes(int(x, 16) for x in l[l.index(">C:"):].split()[1:17])
+t = h.decode("latin1")
+print("the PET screen:", [t[i*40:i*40+40].rstrip() for i in range(25) if t[i*40:i*40+40].strip()][:8])
+sys.exit(0 if "\x10\x12\x09\x0e\x14 (1.5)" in t and " 1.5" in t else 1)
+EOF
+python3 ~/mon.py; r=$?
+grep "k4510c64: the PET" ~/logpet
 [ $(grep -c "k4510c64: the PET.s colours" ~/logpet) -gt "$first" ] || { echo "test-c64panel: FAILED: the PET panel did not follow the palette"; exit 1; }
-echo "test-c64panel: OK (keymap, REU, KERNAL colours, drive 9; DISKS, a folder, a disk in drive 8, a program run, EJECT, BROWSE; the C128 panel above its other screen; the PET panel in its screen colours, following a new palette, a disk in its drive 8)"
+[ $r = 0 ] || { echo "test-c64panel: FAILED: PRINT (1.5) did not type as printed"; exit 1; }
+echo "test-c64panel: OK (keymap, REU, KERNAL colours, drive 9; DISKS, a folder, a disk in drive 8, a program run, EJECT, BROWSE; the C128 panel above its other screen; the PET panel in its screen colours, following a new palette, a disk in its drive 8; the PET typing by symbol)"
 '

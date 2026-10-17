@@ -20,7 +20,7 @@
  *                  SD2IEC is); BROWSE runs Dir Browser (DB64 / DB128) on it;
  *                  not on the PET
  *   KEYS           the machine's keys on the PC's (-keymap 0, sdl_sym.vkm;
- *                  the PET's by position, sdl_grus_pos.vkm)
+ *                  the PET's too, sdl_grus_sym.vkm)
  *
  * On the C128 the screen it is not showing (the VDC or the VIC-II) is drawn
  * along the bottom of the sidebar, below this (video_sdl2.c, c64panel.py).
@@ -65,11 +65,10 @@ static const char *const c64p_keys128[][2] = {
     { "F9", "ESC" }, { "F11", "ALT" }, { "END", "HELP" }, { "PGDN", "LINE FEED" },
     { "HOME", "CLR/HOME" }, { "KEYPAD /", "40/80" }, { "KEYPAD *", "NO SCROLL" },
     { "\\", "`" }, { "~", "~" }, { "F12", "VICE'S MENU" }, { NULL, NULL } };
-static const char *const c64p_keyspet[][2] = {     /* the graphics keyboard by position (sdl_grus_pos.vkm) */
-    { "ESC", "RUN/STOP" }, { "HOME", "CLR/HOME" }, { "CAPS", "SHIFT LOCK" },
-    { "1 TO 0", "!\"#$%'&\\()" }, { "-", "~" }, { "`", "@" }, { "=", "[" }, { "BACKSPACE", "]" },
-    { "[", "^" }, { "]", "<" }, { "\\", ">" }, { ";", ":" }, { ".", ";" },
-    { "END PGUP", "- /" }, { "PGDN", "*" }, { "DIGITS", "THE KEYPAD" }, { "F12", "VICE'S MENU" }, { NULL, NULL } };
+static const char *const c64p_keyspet[][2] = {     /* the graphics keyboard by symbol (sdl_grus_sym.vkm) */
+    { "ESC", "RUN/STOP" }, { "HOME", "CLR/HOME" }, { "TAB", "RVS ON/OFF" }, { "CAPS", "SHIFT LOCK" },
+    { "BACKSPACE", "INST/DEL" }, { "INS", "INST" }, { "END OR ~", "~" }, { "PGDN", "^" },
+    { "F12", "VICE'S MENU" }, { NULL, NULL } };
 
 static const c64p_theme_t c64p_c64 = {
     " COMMODORE 64 ", "1541 #8", "DB64",
@@ -537,10 +536,10 @@ c64p_render(uint32_t ms)
         for (i = 0; i < room && first + i < n; i++) {
             int row = top + i, j = first + i, on, y = row * 8;
             if (c64p_view == 0) {
-                int L = j + 1, clk = c64p_prg[L] > 0, k;
+                int L = j + 1, clk = c64p_prg[L] > 0, k, skip = cols < 29 && L != c64p_free ? 4 : 0;   /* narrow: no blocks */
                 on = clk && c64p_over(8, y, (cols - 2) * 8, 8);
-                for (k = 0; k < c64p_len[L] && 1 + k < cols; k++)
-                    c64p_char((1 + k) * 8, y, (uint8_t)(c64p_line[L][k] | (on ? 0x80 : 0)), on ? c64p_t->folder : (clk ? c64p_t->text : c64p_t->dim), c64p_t->bg);
+                for (k = 0; k + skip < c64p_len[L] && 1 + k < cols; k++)
+                    c64p_char((1 + k) * 8, y, (uint8_t)(c64p_line[L][k + skip] | (on ? 0x80 : 0)), on ? c64p_t->folder : (clk ? c64p_t->text : c64p_t->dim), c64p_t->bg);
                 if (clk) c64p_hitbox(8, y, (cols - 2) * 8, 8, H_ENTRY, c64p_prg[L]);
             } else {
                 int dir = c64p_file[j].dir;
@@ -594,8 +593,9 @@ k4510c64_draw(struct video_canvas_s *canvas, SDL_Renderer *r, SDL_Rect area)
 {
     uint32_t ms = c64p_now();
     int k, w, h, fresh = 0;
-    /* whole machine pixels, as large as leaves 27 columns of text */
-    k = area.w / (27 * 8);
+    /* whole machine pixels, as large as leaves 24 columns of text (27 show
+     * the blocks in the directory too; the PET's narrow sidebar has 24) */
+    k = area.w / (24 * 8);
     if (k < 1) k = 1;
     if (k > 4) k = 4;
     w = area.w / k; h = area.h / k;

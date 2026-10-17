@@ -37,4 +37,10 @@ patch("src/arch/sdl/ui.c", [
      "    while (SDL_PollEvent(&e)) {\n        joystick_device_t *joydev = NULL;\n"
      "        if (k4510c64_event(&e)) {\n            continue;\n        }\n"),
 ])
+# the PET's symbolic keymap (graphics keyboard, US): VICE 3.10 sends "." to
+# the ";" key (row 6, column 4); the German one has it right, row 9 column 6
+patch("data/PET/sdl_grus_sym.vkm", [
+    ("46 6 4 32       /*            . -> ;            */",
+     "46 9 6 32       /*            . -> .            */  /* K4510: was 6 4, the ; key */"),
+])
 print("vice/c64panel.py: the C64's sidebar in")

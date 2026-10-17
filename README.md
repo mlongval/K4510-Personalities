@@ -59,13 +59,12 @@ the SD volume; the wheel scrolls.  On the C128 the screen it is not showing
 The **PET** has the same panel in its screen's own two colours, read from
 VICE's palette as it draws, so a palette chosen in F12 (green, amber, white)
 recolours it at once; its drive is whatever Drive8Type is (a 2031 at first; a
-.D64 goes in a 2031, a .D80 in an 8050), its keys the graphics keyboard by
-position, and no SD row.
+.D64 goes in a 2031, a .D80 in an 8050), its keys the graphics keyboard's, and no SD row.
 `K4510_C64_PANEL=0` gives the scene back.  `tools/test-c64panel.sh` clicks
 through it under Xvfb (xdotool) and reads VICE's log.
 
 Both machines (run/vice): the keyboard by symbol (`-keymap 0`: a PC key types
-what is printed on it; the PET stays positional), a 16 MB REU (VICE's
+what is printed on it; the PET too), a 16 MB REU (VICE's
 largest), and drive 9 an **SD volume**: the folder `~/personalities/SD`,
 shared, as VICE's filesystem device (which takes SD2IEC's `CD` commands), with
 [Dir Browser](https://graham-it.itch.io/dirbrowser) on it as DB64 and DB128
